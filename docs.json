@@ -1,0 +1,80 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "sequoia",
+  "name": "Tellen",
+  "colors": {
+    "primary": "#305a58",
+    "light": "#478581",
+    "dark": "#050505"
+  },
+  "favicon": "https://media.brand.dev/9be30864-b865-42cf-9273-4b5ff397467d.svg",
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Empezar gratis",
+      "href": "https://dashboard.tellen.app/users/sign_up"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guías de uso",
+        "groups": [
+          {
+            "group": "Primeros pasos",
+            "pages": [
+              "introduccion",
+              "primeros-pasos/configura-tu-cuenta",
+              "primeros-pasos/invita-a-tu-equipo"
+            ]
+          },
+          {
+            "group": "Producto",
+            "pages": [
+              "producto/emite-comprobantes",
+              "producto/usa-recordatorios-con-criterio",
+              "producto/organiza-tus-clientes",
+              "producto/untitled-page",
+              "producto/establecimientos-y-puntos-de-emision"
+            ]
+          },
+          {
+            "group": "Casos de uso",
+            "pages": [
+              "casos-de-uso/profesional-independiente",
+              "casos-de-uso/pequenos-negocios"
+            ]
+          },
+          {
+            "group": "Recursos",
+            "pages": [
+              "recursos/checklist-de-onboarding",
+              "recursos/preguntas-frecuentes"
+            ]
+          }
+        ],
+        "icon": "map"
+      },
+      {
+        "tab": "API",
+        "icon": "code",
+        "openapi": "https://dashboard.tellen.app/api/v1/openapi.yaml"
+      }
+    ]
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "background": {
+    "color": {
+      "light": "#FFFFFF"
+    }
+  },
+  "seo": {
+    "indexing": "navigable"
+  }
+}

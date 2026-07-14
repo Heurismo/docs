@@ -1,0 +1,149 @@
+---
+title: "Preguntas frecuentes sobre Tellen, SRI y certificados"
+description: "Respuestas a las dudas más comunes sobre facturación electrónica, cumplimiento SRI, planes, certificados digitales y el manejo de tus datos en Tellen."
+---
+
+Si tienes dudas sobre cómo funciona Tellen, qué incluye cada plan o cómo cumplir con los requisitos del SRI, estás en el lugar correcto. A continuación encontrarás respuestas a las preguntas que más nos hacen nuestros usuarios. Si no encuentras lo que buscas, escríbenos por el chat de soporte disponible en todos los planes.
+
+## Sobre la cuenta y el inicio
+
+<AccordionGroup>
+  <Accordion title="¿Necesito tarjeta de crédito para empezar?">
+    No. Puedes crear tu cuenta en Tellen y emitir tus primeras **3 facturas completamente gratis** sin necesidad de ingresar datos de pago. Solo pagas si decides continuar con un plan de suscripción una vez que agotes tus facturas gratuitas.
+
+    [Crea tu cuenta gratis](https://dashboard.tellen.app/users/sign_up)
+  </Accordion>
+
+  <Accordion title="¿Puedo cancelar mi suscripción en cualquier momento?">
+    Sí. Tellen no tiene contratos de permanencia. Puedes cancelar tu suscripción cuando quieras desde la configuración de tu cuenta, sin penalizaciones ni trámites complicados.
+
+    <Note>
+      Si cancelas tu cuenta, tienes **30 días** para solicitar una exportación de tus datos antes de que sean eliminados de nuestros servidores.
+    </Note>
+  </Accordion>
+</AccordionGroup>
+
+## Sobre el SRI y el cumplimiento tributario
+
+<AccordionGroup>
+  <Accordion title="¿Tellen cumple con los requisitos del SRI?">
+    Sí. Tellen es **100 % compatible con el SRI**. La plataforma genera el XML conforme a los esquemas oficiales del Servicio de Rentas Internas del Ecuador, aplica la firma electrónica con tu certificado PKCS#12 y envía los comprobantes al SRI automáticamente. La clave de acceso de 49 dígitos y la autorización quedan registradas en cada documento.
+  </Accordion>
+
+  <Accordion title="¿Qué tipos de comprobantes puedo emitir?">
+    Dependiendo de tu plan, puedes emitir los siguientes comprobantes electrónicos:
+
+    | Comprobante | Básico | Profesional |
+    |---|---|---|
+    | Factura | Sí | Sí |
+    | Nota de crédito | Sí | Sí |
+    | Nota de débito | Sí | Sí |
+    | Retención | Sí | Sí |
+    | Proforma | No | Sí |
+  </Accordion>
+
+  <Accordion title="¿Qué pasa si el SRI rechaza una factura?">
+    Tellen muestra el mensaje de error devuelto por el SRI directamente en la interfaz para que puedas identificar el problema. Los errores más comunes son datos incorrectos del emisor o receptor, o problemas en la estructura del XML.
+
+    - **Errores en los datos:** corrige la información en el comprobante y reenvíalo manualmente.
+    - **Errores transitorios** (como caídas temporales del servicio del SRI): Tellen reintenta el envío automáticamente.
+
+    <Tip>
+      Revisa el detalle del rechazo antes de reenviar. Enviar un documento con el mismo error varias veces no lo va a autorizar.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="¿Cuánto tarda en autorizarse una factura?">
+    En condiciones normales, el proceso completo — generación del XML, firma electrónica y autorización por parte del SRI — toma **menos de 3 segundos**. En períodos de alta demanda o mantenimiento del SRI el tiempo puede ser mayor, pero Tellen reintenta automáticamente hasta obtener la respuesta.
+  </Accordion>
+
+  <Accordion title="¿Puedo usar el ambiente de pruebas del SRI?">
+    Sí. Tellen soporta tanto el **ambiente de pruebas** como el **ambiente de producción** del SRI. Puedes cambiar entre ambos desde **Configuración → Ambiente**. Usar el ambiente de pruebas es especialmente útil durante el onboarding para verificar que tu configuración esté correcta antes de emitir comprobantes reales.
+
+    <Warning>
+      Los comprobantes emitidos en el ambiente de pruebas no tienen validez tributaria. Asegúrate de cambiar a **Producción** antes de facturar a tus clientes reales.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+## Sobre el certificado digital
+
+<AccordionGroup>
+  <Accordion title="¿Qué es el certificado digital .p12?">
+    El certificado digital es un archivo en formato **PKCS#12** (extensión `.p12`) que contiene tu identidad digital y la clave privada necesaria para firmar electrónicamente los comprobantes ante el SRI. Sin este certificado, no es posible emitir facturas electrónicas válidas en Ecuador.
+
+    El certificado es emitido por entidades certificadoras autorizadas y está vinculado a tu RUC. Tiene una fecha de vencimiento, por lo que debes renovarlo antes de que expire.
+  </Accordion>
+
+  <Accordion title="¿Dónde obtengo mi certificado digital?">
+    En Ecuador puedes obtener tu certificado digital en las siguientes entidades certificadoras autorizadas:
+
+    - **Banco Central del Ecuador (BCE)**
+    - **Security Data**
+
+    El proceso de obtención suele requerir la verificación de tu identidad de forma presencial o en línea, dependiendo de la entidad. Una vez obtenido el `.p12`, guárdalo en un lugar seguro.
+
+    <Tip>
+      Revisa la fecha de vencimiento de tu certificado periódicamente. Si expira, Tellen no podrá firmar tus comprobantes hasta que subas uno renovado.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="¿Tellen almacena mi certificado de forma segura?">
+    Sí. Tellen almacena tu certificado digital con **cifrado en reposo** usando estándares de seguridad de la industria. Ningún miembro del equipo de Tellen puede acceder a la clave privada de tu certificado.
+
+    Para más detalles sobre las medidas de seguridad implementadas, consulta la [Política de Privacidad](https://tellen.app/privacidad).
+  </Accordion>
+</AccordionGroup>
+
+## Sobre planes y usuarios
+
+<AccordionGroup>
+  <Accordion title="¿Cuántos usuarios puedo tener en mi cuenta?">
+    El número de usuarios depende del plan:
+
+    | Plan | Usuarios incluidos |
+    |---|---|
+    | Básico ($9.99/mes) | 1 usuario |
+    | Profesional ($18.32/mes) | Hasta 3 usuarios |
+    | Empresarial (próximamente) | Por definir |
+
+    Todos los usuarios de una misma cuenta comparten la configuración del negocio, pero puedes restringir a cada uno a determinados puntos de emisión.
+  </Accordion>
+
+  <Accordion title="¿Puedo tener múltiples establecimientos y puntos de emisión?">
+    Sí. Todos los planes — incluyendo el Básico — incluyen **establecimientos y puntos de emisión ilimitados**. Puedes configurar tantas sucursales y cajas como necesites sin costos adicionales.
+  </Accordion>
+
+  <Accordion title="¿Qué diferencia al plan Profesional del plan Básico?">
+    El plan Profesional incluye todo lo del Básico, más las siguientes funcionalidades adicionales:
+
+    - **AI nativo:** asistente inteligente y sugerencias automáticas al facturar.
+    - **AI en reportes:** insights automáticos sobre tu facturación.
+    - **Proformas ilimitadas:** crea y envía cotizaciones a tus clientes.
+    - **Cuentas por cobrar y pagar:** gestiona el estado de tus facturas emitidas y recibidas.
+    - **Control de gastos:** registra y categoriza tus gastos operativos.
+    - **Hasta 3 usuarios:** agrega a tu contador o a tu equipo de ventas.
+
+    El plan Básico cuesta **$9.99/mes** y el Profesional **$18.32/mes** (ambos más IVA 15 %). También puedes suscribirte de forma anual y ahorrar el equivalente a 2 meses.
+  </Accordion>
+</AccordionGroup>
+
+## Sobre tus datos
+
+<AccordionGroup>
+  <Accordion title="¿Por cuánto tiempo se guardan mis facturas?">
+    Tellen retiene tus facturas y documentos tributarios por un **mínimo de 7 años**, en cumplimiento con la legislación tributaria ecuatoriana. Este período de retención aplica incluso si cancelas tu cuenta.
+
+    <Info>
+      La retención de 7 años es un requisito legal establecido por el SRI. No es posible eliminar facturas autorizadas antes de que se cumpla ese plazo.
+    </Info>
+  </Accordion>
+
+  <Accordion title="¿Puedo exportar mis datos?">
+    Sí. Tienes derecho a solicitar una exportación de todos tus datos en cualquier momento, incluyendo facturas, contactos y catálogo de productos. Para solicitarla, escríbenos por el chat de soporte o a [legal@heurismo.com](mailto:legal@heurismo.com).
+
+    <Note>
+      Si cancelas tu cuenta, dispones de **30 días** a partir de la fecha de cancelación para solicitar la exportación de tus datos. Una vez transcurrido ese plazo, los datos personales son eliminados conforme a nuestra Política de Privacidad.
+    </Note>
+  </Accordion>
+</AccordionGroup>

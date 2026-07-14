@@ -1,0 +1,139 @@
+---
+title: "Configura establecimientos y puntos de emisión SRI"
+description: "Configura correctamente tus establecimientos y puntos de emisión para cumplir con la numeración secuencial que exige el SRI y evitar rechazos de comprobantes."
+---
+
+El SRI exige que cada comprobante electrónico incluya un número de serie que identifica el establecimiento y el punto de emisión desde donde fue generado. Configurar esta estructura correctamente desde el inicio es fundamental: una numeración mal configurada puede provocar rechazos en masa de tus facturas y requiere trámites correctivos ante el SRI.
+
+## Qué es un establecimiento
+
+Un **establecimiento** es una ubicación física o lógica de tu negocio registrada ante el SRI. Puede ser tu oficina principal, una sucursal, un local comercial o incluso una unidad de facturación diferenciada dentro de la misma dirección.
+
+El SRI identifica cada establecimiento con un código de tres dígitos: `001`, `002`, `003`, etc.
+
+**Ejemplos:**
+
+- `001` — Oficina principal o matriz
+- `002` — Sucursal Norte
+- `003` — Bodega o tostadora
+
+## Qué es un punto de emisión
+
+Un **punto de emisión** es el terminal o caja desde el que se emiten los comprobantes dentro de un establecimiento. Cada punto de emisión tiene su propio código de tres dígitos y mantiene una **numeración secuencial independiente**.
+
+El número de un comprobante sigue la estructura:
+
+```text
+[establecimiento]-[punto de emisión]-[secuencial]
+001-001-000000001
+001-002-000000001
+002-001-000000001
+```
+
+Cada punto de emisión empieza su conteo desde `000000001` y nunca reinicia ni comparte la secuencia con otro punto.
+
+<Warning>
+  No reutilices ni saltes números de secuencia. El SRI detecta gaps o duplicados en la numeración y puede rechazar los comprobantes afectados. Configura cada punto de emisión una sola vez y déjalo funcionar de forma continua.
+</Warning>
+
+## Por qué importa configurarlo correctamente
+
+- **Validez tributaria** — El SRI solo autoriza comprobantes cuya numeración corresponde exactamente al establecimiento y punto de emisión registrados.
+- **Auditoría** — La numeración secuencial independiente permite rastrear todos los comprobantes emitidos desde cada punto sin ambigüedad.
+- **Operación multi-local** — Si tienes varios locales, cada uno debe tener su propio punto de emisión para que los comprobantes no se mezclen entre sucursales.
+
+## Cómo configurar establecimientos y puntos de emisión en Tellen
+
+<Steps>
+  <Step title="Accede a la configuración">
+    Ve a **Configuración → Establecimientos** en el panel de Tellen.
+  </Step>
+  <Step title="Crea un establecimiento">
+    Haz clic en **Nuevo establecimiento**. Ingresa:
+
+    - **Nombre** — Por ejemplo, "Sucursal Centro" o "Oficina Principal".
+    - **Código** — El código de tres dígitos asignado por el SRI (`001`, `002`, etc.).
+    - **Dirección** — La dirección registrada para ese establecimiento en el RUC.
+  </Step>
+  <Step title="Agrega un punto de emisión">
+    Dentro del establecimiento recién creado, haz clic en **Nuevo punto de emisión**. Ingresa:
+
+    - **Código** — `001`, `002`, etc., dentro de ese establecimiento.
+    - **Descripción** — Por ejemplo, "Caja 1", "Terminal Barista" o "Facturación administrativa".
+  </Step>
+  <Step title="Asigna el punto de emisión a un usuario">
+    Ve a **Configuración → Usuarios** y asigna el punto de emisión correspondiente a cada miembro de tu equipo. El usuario emitirá todos sus comprobantes desde ese punto de emisión de forma automática.
+  </Step>
+  <Step title="Verifica en el ambiente de pruebas">
+    Antes de emitir en producción, emite un comprobante de prueba para confirmar que la numeración es correcta y que el SRI lo acepta sin errores.
+  </Step>
+</Steps>
+
+<Tip>
+  Si tienes un solo local y facturas desde una sola caja, tu configuración más simple es: establecimiento `001` con punto de emisión `001`. Puedes añadir más establecimientos y puntos de emisión en cualquier momento sin afectar los comprobantes ya emitidos.
+</Tip>
+
+## Ejemplo de estructura multi-local
+
+| Establecimiento | Código | Puntos de emisión | Ejemplo de numeración |
+| --- | --- | --- | --- |
+| Sucursal Centro | `001` | `001`, `002` | `001-001-000000045` |
+| Sucursal Norte | `002` | `001` | `002-001-000000012` |
+| Tostadora | `003` | `001`, `002` | `003-001-000000008` |
+
+Cada columna de secuenciales es completamente independiente. Facturar desde Sucursal Norte no afecta el contador de Sucursal Centro.
+
+## Límites por plan
+
+<Note>
+  Todos los planes de Tellen incluyen establecimientos y puntos de emisión ilimitados. No hay restricción de cantidad: puedes configurar tantos como necesite tu negocio.
+</Note>
+
+| Plan | Usuarios | Establecimientos | Puntos de emisión |
+| --- | --- | --- | --- |
+| Básico | 1 | Ilimitados | Ilimitados |
+| Profesional | Hasta 3 | Ilimitados | Ilimitados |
+| Empresarial | Próximamente | Ilimitados | Ilimitados |
+
+## **1. Empresa: Tu identidad legal**
+
+En esta pestaña verificas que tus datos básicos sean correctos.
+
+![](/images/Screenshot-9.png)
+
+- **Qué hacer:** Revisa que tu **Razón Social**, **Dirección Matriz** y **Teléfono** coincidan exactamente con tu RUC. Esta información aparecerá en el encabezado de todas tus facturas o cotizaciones PDF.
+
+## **2. Perfil AI: El "Cerebro" de tu negocio**
+
+Este es un bloque clave. Aquí le explicas a Tellen qué hace tu empresa para que la IA clasifique tus gastos automáticamente.
+
+![](/images/Screenshot-5.png)
+
+- **Modelo de negocio:** Escribe una breve descripción (ej: _"Agencia de arquitectura que genera ingresos por planos y renders, con gastos en materiales e impresiones"_).
+- **Categorías de gasto:** Define tus etiquetas (ej: Servicios básicos, Arriendo, Marketing).
+
+**Tip de experto:** No subestimes el Perfil AI. Dedicarle 2 minutos a describir tu negocio hará que los reportes de Tellen IA sean personalizados/ adaptados.
+
+## **3. Facturación: Tu correo registrado en Tellen**
+
+Revisa el canal de comunicación con Tellen. El correo que registres es el que usaremos para cualquier comunicación importante (ej. factura de tu suscripción en Tellen).
+
+![](/images/Screenshot-6.png)
+
+## **4. Obligaciones SRI: Tu perfil tributario**
+
+- **Qué hacer:** Si eres Agente de Retención o estás en el régimen Contribuyente, te pediremos llenar los códigos de: Resolución contribuyente y Resolución agente de retención.
+- Tellen llena automáticamente las casillas con los datos del SRI.
+
+![](/images/Screenshot-7.png)
+
+- **Propósito:** Tellen usará esto para habilitar o deshabilitar campos automáticos en tus facturas y evitar que cometas errores legales.
+
+## **5. Ambiente: Pruebas vs. Producción**
+
+Controla el destino de tus documentos.
+
+![](/images/Screenshot-8.png)
+
+- **Modo Producción:** Esta casilla está activada por default. Manténla **activada** para que tus facturas tengan validez legal y lleguen al SRI.
+- **Nota:** Si estás aprendiendo a usar la app y quieres hacer pruebas sin valor legal, puedes desactivarla temporalmente.

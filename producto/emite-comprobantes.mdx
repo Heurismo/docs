@@ -1,0 +1,59 @@
+---
+title: "Emite facturas y comprobantes electrónicos con Tellen"
+description: "Guía completa para emitir facturas, notas de crédito, notas de débito, retenciones y proformas. Tellen genera el XML, firma y envía al SRI automáticamente."
+---
+
+Tellen centraliza la emisión de todos tus comprobantes electrónicos en un solo lugar. Selecciona el tipo de documento, completa los datos del destinatario y los ítems, y Tellen se encarga del resto: genera el XML conforme al esquema del SRI, lo firma digitalmente con tu certificado `.p12` y lo envía para obtener la autorización, todo en segundos.
+
+## Cómo emitir una Factura Electrónica
+
+La factura es el comprobante más frecuente.<br />Tellen está diseñado para que el proceso de facturación sea el más rápido de Ecuador. <br />Sigue estos pasos para pasar del panel principal a una factura autorizada en segundos:
+
+<Steps>
+  <Step title="Localiza el botón de acción:">
+    **Acción Rápida:** En tu panel principal, verás un botón verde destacado en la parte superior derecha que dice **Nueva Factura**.
+
+    <Frame>
+      ![Screenshot 2026 07 08 At 1 20 45 PM](/images/Screenshot-2026-07-08-at-1.20.45-PM.png)
+    </Frame>
+  </Step>
+  <Step title="Completa la información:">
+    - **Datos del Cliente:** - Escribe el nombre o el RUC en el buscador. Si el cliente no está registrado, pulsa el botón **\+** para agregarlo rápidamente. Tellen guardará estos datos para tus futuras ventas.
+      ![Screenshot 2026 07 07 At 10 56 04 PM](/images/Screenshot-2026-07-07-at-10.56.04-PM.png)
+    - **Selección de Productos o Servicios:** En la tabla central, usa el buscador de **Productos** para añadir ítems de tu catálogo. 
+
+    ![Screenshot 2026 07 07 At 10 56 42 PM](/images/Screenshot-2026-07-07-at-10.56.42-PM.png)
+
+    - 💡Pro Tip: Puedes cambiar la **cantidad** o el **precio unitario** directamente en la celda. Tellen calculará el IVA y el total automáticamente en el resumen de la derecha.
+    - **Forma de Pago:** En la esquina inferior izquierda, elige cómo te pagará tu cliente (ej. tarjeta de crédito, efectivo, otros). Este campo es obligatorio para que el SRI acepte el documento.
+
+    ![Screenshot 2026 07 07 At 10 57 45 PM](/images/Screenshot-2026-07-07-at-10.57.45-PM.png)
+  </Step>
+  <Step title="Factura a Crédito (Opcional)">
+    - 💡Pro Tip: **¿Vendes a crédito? Automatiza tus cobros** <br />Si tu cliente no te va a pagar de inmediato, marca la casilla **Factura a crédito**.
+
+    **- Elige tus plazos:** Despliega el menú de _Plazo_ para seleccionar opciones rápidas (7, 15, 30 hasta 90 días) o elige **Otro** para poner una fecha de vencimiento totalmente personalizada.<br />- **Activa los recordatorios:** No persigas a tus clientes manualmente. Al activar la opción **"Enviar recordatorios de pago al cliente"**, Tellen se encargará de notificarle automáticamente por correo cuando se acerque la fecha de vencimiento para que tu flujo de caja nunca se detenga.
+
+    <Frame>
+      ![Screenshot 2026 07 07 At 11 05 23 PM](/images/Screenshot-2026-07-07-at-11.05.23-PM.png)
+    </Frame>
+  </Step>
+  <Step title="Envía al SRI">
+    Haz clic en **Emitir Factura**. Tellen genera el XML, firma el documento con tu certificado `.p12` y lo envía al SRI. Recibirás la confirmación de autorización en la pantalla.
+  </Step>
+  <Step title="Comparte el comprobante">
+    Una vez autorizada, descarga el PDF o envíalo** **directamente al correo electrónico del cliente desde Tellen en** Acciones**. La clave de acceso de 49 dígitos queda registrada en el historial de cada factura.
+
+    <Frame>
+      ![Screenshot 2026 07 07 At 11 15 38 PM](/images/Screenshot-2026-07-07-at-11.15.38-PM.png)
+    </Frame>
+  </Step>
+</Steps>
+
+<Note>
+  El tiempo de autorización promedio es menor a 3 segundos. Si el SRI presenta demoras transitorias, Tellen reintenta el envío automáticamente.
+</Note>
+
+<Tip>
+  Antes de emitir comprobantes en producción, usa el ambiente de pruebas del SRI para validar tu configuración de establecimientos, puntos de emisión y certificado `.p12`. Puedes activarlo desde **Configuración → Ambiente**.
+</Tip>

@@ -1,0 +1,129 @@
+---
+title: "Checklist de onboarding: configura Tellen sin errores"
+description: "Sigue este checklist paso a paso para configurar Tellen correctamente y comenzar a emitir comprobantes electrónicos al SRI sin contratiempos."
+---
+
+Antes de emitir tu primera factura en producción, vale la pena tomarte unos minutos para dejar todo en orden. Un onboarding bien hecho evita errores de configuración, duplicados en el catálogo y confusión en el equipo — y te ahorra tiempo de soporte más adelante. Usa este checklist como guía definitiva para dejar Tellen listo desde el primer día.
+
+<Steps>
+  <Step title="Confirmar responsables del proceso">
+    Define quién administra la cuenta de Tellen (configuración, usuarios, certificado) y quién se encarga de la facturación diaria. Tener roles claros desde el inicio evita confusiones y accesos no deseados.
+
+    - **Administrador:** gestiona la configuración general, el certificado digital y los usuarios.
+    - **Facturador:** crea y emite comprobantes desde los puntos de emisión asignados.
+
+    <Note>
+      En el plan Básico puedes tener 1 usuario; en el plan Profesional, hasta 3. Planifica los accesos antes de invitar a tu equipo.
+    </Note>
+  </Step>
+
+  <Step title="Validar la información del negocio">
+    Revisa que los datos tributarios de tu empresa estén correctos en Tellen antes de emitir cualquier comprobante. Un error en el RUC o en la razón social puede causar rechazos del SRI.
+
+    Verifica los siguientes campos en la configuración de tu negocio:
+
+    - **RUC:** 13 dígitos, válido y activo ante el SRI.
+    - **Razón social:** tal como aparece en el RUC.
+    - **Nombre comercial:** el nombre con el que operas (puede diferir de la razón social).
+    - **Dirección:** dirección del establecimiento principal.
+    - **Obligado a llevar contabilidad:** marca el valor correcto según tu situación.
+  </Step>
+
+  <Step title="Subir el certificado digital .p12">
+    El certificado digital PKCS#12 (archivo `.p12`) es indispensable para firmar electrónicamente todos tus comprobantes ante el SRI. Sin él, Tellen no puede enviar documentos.
+
+    1. Ve a **Configuración → Certificado digital**.
+    2. Sube tu archivo `.p12` y escribe la contraseña asociada.
+    3. Verifica la fecha de vencimiento del certificado.
+
+    <Warning>
+      Si tu certificado está vencido o próximo a vencer, renuévalo con el **Banco Central del Ecuador** o **Security Data** antes de continuar. Tellen no puede firmar documentos con un certificado expirado.
+    </Warning>
+  </Step>
+
+  <Step title="Configurar establecimientos y puntos de emisión">
+    El SRI requiere que cada comprobante identifique el establecimiento y el punto de emisión desde el que se emite. Configúralos correctamente para que la numeración sea válida.
+
+    1. En **Configuración → Establecimientos**, agrega cada local o sucursal con su código de 3 dígitos (por ejemplo, `001`).
+    2. Dentro de cada establecimiento, crea los **puntos de emisión** necesarios (por ejemplo, `001`, `002`).
+    3. Asegúrate de que los códigos coincidan con lo registrado ante el SRI.
+
+    <Note>
+      Todos los planes incluyen establecimientos y puntos de emisión ilimitados. No hay restricciones en este aspecto.
+    </Note>
+  </Step>
+
+  <Step title="Validar la estructura inicial de clientes">
+    Un directorio de clientes bien organizado desde el inicio evita duplicados y facilita la búsqueda al momento de facturar.
+
+    - Usa la **razón social o nombre completo** tal como aparece en el RUC o cédula del cliente.
+    - Evita abreviaciones informales que puedan generar entradas duplicadas.
+    - Verifica que el número de identificación (RUC, cédula o pasaporte) sea correcto antes de guardar.
+    - Si vas a importar un listado existente, limpia los datos en Excel o CSV primero.
+  </Step>
+
+  <Step title="Cargar el catálogo de productos con precios e impuestos">
+    El catálogo de productos agiliza la emisión de comprobantes y garantiza que los impuestos se calculen correctamente en cada línea.
+
+    - Ingresa cada producto o servicio con su **código interno**, **descripción**, **precio unitario** y **tarifa de IVA** correspondiente.
+    - Verifica que la tarifa de IVA sea correcta: **15 %**, **5 %** o **0 %** según el tipo de bien o servicio.
+    - Agrupa los artículos con categorías si manejas un catálogo extenso.
+
+    <Tip>
+      Si ya tienes un catálogo en una hoja de cálculo, prepara la importación desde el inicio para ahorrar tiempo de carga manual.
+    </Tip>
+  </Step>
+
+  <Step title="Probar el flujo con un registro interno de prueba">
+    Antes de emitir comprobantes reales, realiza al menos una prueba completa para verificar que todo el flujo funciona correctamente.
+
+    1. Crea un cliente de prueba con tus propios datos o los de tu empresa.
+    2. Emite una factura de prueba con un producto de tu catálogo.
+    3. Verifica que el comprobante se autorice correctamente y que el XML sea válido.
+    4. Descarga el RIDE y revisa que todos los datos aparezcan bien impresos.
+
+    <Tip>
+      Usa el **ambiente de pruebas del SRI** para tus primeras emisiones. Así puedes verificar que la configuración es correcta sin generar comprobantes válidos en producción. Actívalo en **Configuración → Ambiente → Pruebas**.
+    </Tip>
+  </Step>
+
+  <Step title="Invitar al equipo y asignar roles y puntos de emisión">
+    Si tienes más de un usuario, invita a tu equipo una vez que la configuración base esté lista.
+
+    1. Ve a **Configuración → Usuarios** e invita a cada miembro por correo electrónico.
+    2. Asigna el rol correspondiente: **Administrador** o **Facturador**.
+    3. Restringe cada usuario a los puntos de emisión que le corresponden según su función o sucursal.
+
+    <Note>
+      El plan Profesional permite hasta 3 usuarios. Si necesitas más accesos simultáneos, considera el plan Empresarial (próximamente disponible).
+    </Note>
+  </Step>
+
+  <Step title="Alinear criterios de uso con el equipo">
+    Antes de salir a producción, asegúrate de que todos los usuarios que facturarán en Tellen conozcan los criterios internos de uso:
+
+    - ¿Cómo se nombran los clientes nuevos? (criterio de nombre unificado)
+    - ¿Qué punto de emisión usa cada persona o sucursal?
+    - ¿Cuándo se emite una nota de crédito vs. una anulación?
+    - ¿Cómo se reportan errores o rechazos del SRI?
+
+    Documentar estas decisiones — aunque sea brevemente — evita inconsistencias en la base de datos.
+  </Step>
+
+  <Step title="Definir una fecha de revisión posterior al lanzamiento">
+    Programa una revisión del proceso entre 2 y 4 semanas después de comenzar a facturar en producción. Úsala para:
+
+    - Identificar productos o clientes faltantes en el catálogo.
+    - Verificar que la numeración de los comprobantes sea correlativa y sin saltos.
+    - Revisar si hay comprobantes rechazados o pendientes de reenvío.
+    - Ajustar permisos de usuarios si el flujo cambió.
+  </Step>
+</Steps>
+
+<Note>
+  Una vez completado este checklist, tu cuenta de Tellen está lista para emitir comprobantes electrónicos en producción. Recuerda cambiar el ambiente a **Producción** en **Configuración → Ambiente** antes de emitir facturas reales.
+</Note>
+
+<Card title="Configura tu cuenta paso a paso" icon="gear" href="/primeros-pasos/configura-tu-cuenta">
+  Revisa la guía detallada de configuración inicial si necesitas ayuda con alguno de los pasos anteriores.
+</Card>

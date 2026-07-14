@@ -1,0 +1,84 @@
+---
+title: "Configura tu cuenta de Tellen y empieza a facturar"
+description: "Crea tu cuenta, revisa los datos de tu negocio, sube tu certificado digital .p12 y valida el flujo en el ambiente de pruebas del SRI."
+---
+
+Antes de emitir tu primer comprobante necesitas completar cuatro pasos: crear tu cuenta, revisar los datos de tu negocio, subir tu certificado digital y definir cómo vas a usar Tellen. Esta guía te lleva por cada uno de ellos.
+
+<Steps>
+  <Step title="Crea tu cuenta">
+    Abre [dashboard.tellen.app/users/sign\_up](https://dashboard.tellen.app/users/sign_up) y regístrate con tu correo electrónico.
+
+    Al crear tu cuenta recibes **3 facturas gratis** para probar la plataforma. No necesitas ingresar datos de tarjeta de crédito y puedes cancelar cuando quieras.
+
+    <Note>
+      Si ya tienes una cuenta activa, omite este paso e inicia sesión directamente en [dashboard.tellen.app](https://dashboard.tellen.app).
+    </Note>
+  </Step>
+  <Step title="Revisa la información del negocio">
+    Una vez dentro del panel, confirma los datos que aparecerán en tus comprobantes y comunicaciones:
+
+    - **Nombre comercial**: el nombre con el que operas, que puede diferir de tu razón social.
+    - **Correo principal**: la dirección desde la que se envían notificaciones y recordatorios.
+    - **RUC y razón social**: deben coincidir exactamente con los datos registrados en el SRI.
+
+    Mantener esta información correcta evita errores de validación al momento de enviar comprobantes.
+  </Step>
+  <Step title="Sube tu certificado digital .p12">
+    El certificado digital es un archivo con extensión `.p12` (formato PKCS#12) que acredita tu identidad ante el SRI y permite firmar electrónicamente los comprobantes. Lo emite el **Registro Civil** o el **Banco Central del Ecuador**.
+
+    Para subirlo:
+
+    1. Ve a **Configuración → Certificado digital** dentro del panel.
+    2. Selecciona el archivo `.p12` desde tu computadora.
+    3. Ingresa la contraseña del certificado cuando el sistema te la solicite.
+    4. Confirma que el certificado aparece como activo.
+
+    Una vez cargado, Tellen lo usa automáticamente cada vez que emites un comprobante. No necesitas volver a subirlo salvo que el certificado expire o lo renueves.
+
+    <Warning>
+      Guarda una copia de tu archivo `.p12` y su contraseña en un lugar seguro. Si el archivo se pierde y no tienes respaldo, deberás solicitar uno nuevo al organismo emisor.
+    </Warning>
+  </Step>
+  <Step title="Define tu flujo base">
+    Antes de invitar a otras personas a tu cuenta, aclara cómo vas a usar Tellen para que la configuración refleje tu operación real:
+
+    - **¿Qué tipo de clientes vas a registrar?** — personas naturales, empresas, o ambos.
+    - **¿Quién da seguimiento a los comprobantes?** — tú directamente, un asistente, un contador.
+    - **¿Qué estados o recordatorios necesitas primero?** — por ejemplo, alertas de comprobantes pendientes de pago o notificaciones de vencimiento.
+
+    Tener esto claro desde el inicio evita reconfigurar el sistema después de haber invitado a tu equipo.
+
+    <Tip>
+      Si eres la única persona que usará Tellen por ahora, igual es útil anotar este flujo. Te servirá de referencia cuando escales el equipo.
+    </Tip>
+  </Step>
+  <Step title="Haz una prueba completa">
+    Con la cuenta configurada, crea un registro de prueba y recorre el proceso de punta a punta:
+
+    1. Registra un cliente de prueba en tu directorio de contactos.
+    2. Crea un comprobante (por ejemplo, una factura) y completa todos los campos.
+    3. Envíalo al SRI en el **ambiente de pruebas** y verifica que regresa con autorización.
+    4. Revisa que el XML generado y la clave de acceso tengan el formato correcto.
+
+    Este recorrido te permite detectar cualquier problema de configuración —como un certificado mal cargado o datos del negocio incorrectos— antes de emitir comprobantes con efecto tributario real.
+
+    <Tip>
+      Tellen tiene un ambiente de **pruebas del SRI** completamente separado del de producción. Úsalo para validar tu flujo sin generar comprobantes con validez legal. Puedes cambiar entre ambientes desde **Configuración → Ambiente**.
+    </Tip>
+  </Step>
+</Steps>
+
+## Siguientes pasos
+
+Con tu cuenta lista, el siguiente paso es invitar a las personas que trabajarán contigo en Tellen.
+
+<CardGroup cols={2}>
+  <Card title="Invita a tu equipo" icon="users" href="/primeros-pasos/invita-a-tu-equipo">
+    Agrega colaboradores y define quién es responsable de cada etapa del proceso.
+  </Card>
+
+  <Card title="Emite comprobantes" icon="paper-plane" href="/producto/emite-comprobantes">
+    Aprende a crear y enviar facturas, notas de crédito, débito y retenciones.
+  </Card>
+</CardGroup>

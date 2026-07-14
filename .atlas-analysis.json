@@ -1,0 +1,73 @@
+{
+  "projectType": "saas",
+  "projectName": "Tellen",
+  "projectDescription": "Plataforma de facturación electrónica SaaS para Ecuador que automatiza la generación, firma y envío de comprobantes electrónicos al SRI.",
+  "theme": "almond",
+  "primaryColor": "#e4ecf4",
+  "lightColor": "#7c7c7c",
+  "darkColor": "#050505",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentación",
+        "groups": [
+          {
+            "group": "Primeros pasos",
+            "pages": [
+              "introduccion",
+              "primeros-pasos/configura-tu-cuenta",
+              "primeros-pasos/invita-a-tu-equipo"
+            ]
+          },
+          {
+            "group": "Producto",
+            "pages": [
+              "producto/emite-comprobantes",
+              "producto/organiza-tus-clientes",
+              "producto/usa-recordatorios-con-criterio",
+              "producto/establecimientos-y-puntos-de-emision"
+            ]
+          },
+          {
+            "group": "Casos de uso",
+            "pages": [
+              "casos-de-uso/profesional-independiente",
+              "casos-de-uso/pequenos-negocios"
+            ]
+          },
+          {
+            "group": "Recursos",
+            "pages": [
+              "recursos/checklist-de-onboarding",
+              "recursos/preguntas-frecuentes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Emisión rápida de facturas electrónicas al SRI",
+    "Generación de XML conforme al esquema SRI",
+    "Firma electrónica con certificado PKCS#12 (.p12)",
+    "Envío automático y autorización en segundos",
+    "Soporte para múltiples tipos de comprobantes: facturas, notas de crédito, notas de débito, retenciones",
+    "Panel centralizado con múltiples usuarios y puntos de emisión",
+    "Asistente con AI nativo e insights automáticos (plan Profesional)",
+    "Proformas, cuentas por cobrar y pagar, control de gastos",
+    "Dashboard de reportes e IVA",
+    "Ambientes de pruebas y producción del SRI"
+  ],
+  "publicApiSurface": [
+    "Emisión de facturas electrónicas",
+    "Gestión de contactos (clientes y proveedores)",
+    "Catálogo de productos con impuestos",
+    "Establecimientos y puntos de emisión",
+    "Notas de crédito y débito",
+    "Retenciones",
+    "Proformas",
+    "Reportes de IVA",
+    "Cuentas por cobrar y pagar",
+    "Subida y gestión de certificado digital .p12"
+  ]
+}
