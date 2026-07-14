@@ -58,10 +58,6 @@
           }
         ],
         "icon": "map"
-      },
-      {
-        "tab": "API",
-        "openapi": "https://dashboard.tellen.app/api/v1/openapi.yaml"
       }
     ]
   },
