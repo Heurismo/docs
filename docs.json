@@ -35,10 +35,10 @@
           {
             "group": "Producto",
             "pages": [
-              "producto/emite-comprobantes",
-              "producto/usa-recordatorios-con-criterio",
               "producto/organiza-tus-clientes",
               "producto/untitled-page",
+              "producto/emite-comprobantes",
+              "producto/usa-recordatorios-con-criterio",
               "producto/establecimientos-y-puntos-de-emision"
             ]
           },
