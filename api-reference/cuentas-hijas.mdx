@@ -3,7 +3,7 @@ title: "Cuentas hijas (plataforma)"
 description: "Si tu cuenta es una plataforma, da de alta cuentas hijas a partir de su RUC y opéralas por completo desde la API de Tellen, bajo un modelo de reventa."
 ---
 
-Algunas cuentas de Tellen funcionan como **plataforma**: dan de alta a otras cuentas —las **cuentas hijas**— y se hacen cargo de su facturación. Es el modelo pensado para contadores, agencias y software que ofrecen facturación electrónica a sus propios clientes.
+Algunas cuentas de Tellen funcionan como **plataforma**: dan de alta a otras cuentas —las **cuentas hijas**— y pagan por su uso de Tellen. Es el modelo pensado para contadores, agencias y software que ofrecen facturación electrónica a sus propios clientes.
 
 Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitud, el identificador de la ruta (`/api/v1/accounts/{account_id}/...`) indica sobre qué cuenta hija estás trabajando.
 
@@ -49,11 +49,11 @@ Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitu
   </Step>
 </Steps>
 
-## Cómo funciona la facturación
+## Cómo funciona el cobro
 
-Las cuentas hijas no se facturan solas: paga la plataforma.
+Las cuentas hijas no pagan su propio uso de Tellen: lo cubre la plataforma.
 
-- Al crearla, la cuenta hija **hereda el correo de facturación** de la plataforma.
+- Al crearla, la cuenta hija **hereda el correo de cobro** de la plataforma.
 - No tiene su propio cliente en Stripe; por eso su `plan` lo defines y lo cambias tú.
 - Arranca en el **ambiente de pruebas** del SRI, salvo que la pases a producción al crearla.
 
