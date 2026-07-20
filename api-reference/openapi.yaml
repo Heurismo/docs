@@ -19,12 +19,18 @@ servers:
 security:
   - bearerAuth: []
 tags:
-  - name: Accounts
+  - name: Cuentas
     description: Tu cuenta y, si administras varias, las cuentas que gestionas.
-  - name: Certificates
+  - name: Certificados
     description: Certificados de firma electrónica (.p12) usados para firmar documentos ante el SRI.
-  - name: Contacts
+  - name: Contactos
     description: Clientes y proveedores de la cuenta.
+  - name: Establecimientos
+    description: Establecimientos (sucursales) de la cuenta, sincronizados desde el SRI.
+  - name: Puntos de emisión
+    description: Puntos de emisión por establecimiento, desde donde se emiten los comprobantes.
+  - name: Facturas
+    description: Facturas de venta (comprobante electrónico 01).
 paths:
   /api/v1/accounts:
     get:
@@ -33,7 +39,7 @@ paths:
       description: |
         Devuelve las cuentas a las que puedes acceder con tu token: tu propia
         cuenta y, si administras varias, todas las que gestionas.
-      tags: [Accounts]
+      tags: [Cuentas]
       responses:
         "200":
           description: Las cuentas a las que puedes acceder.
@@ -61,7 +67,7 @@ paths:
         cuenta está habilitada para administrar varias cuentas; de lo contrario la
         API responde `404`. Si el RUC no existe en el SRI la API responde `404`, y
         si ya está registrado en Tellen responde `409`.
-      tags: [Accounts]
+      tags: [Cuentas]
       requestBody:
         required: true
         content:
@@ -107,7 +113,7 @@ paths:
     get:
       operationId: getAccount
       summary: Consultar una cuenta
-      tags: [Accounts]
+      tags: [Cuentas]
       responses:
         "200":
           description: La cuenta.
@@ -131,7 +137,7 @@ paths:
         El plan de tu propia cuenta se gestiona desde tu suscripción, por lo que
         el campo `plan` se ignora al editar tu cuenta; solo se aplica al editar
         una cuenta que administras.
-      tags: [Accounts]
+      tags: [Cuentas]
       requestBody:
         required: true
         content:
@@ -166,7 +172,7 @@ paths:
       operationId: listCertificates
       summary: Listar certificados
       description: Devuelve los certificados de firma de la cuenta, del más reciente al más antiguo.
-      tags: [Certificates]
+      tags: [Certificados]
       responses:
         "200":
           description: Los certificados de la cuenta.
@@ -194,7 +200,7 @@ paths:
         Envía el archivo codificado en base64 junto con su contraseña. Si la
         contraseña es correcta, el certificado queda como el certificado activo
         de la cuenta y se usa para firmar sus documentos electrónicos.
-      tags: [Certificates]
+      tags: [Certificados]
       requestBody:
         required: true
         content:
@@ -235,7 +241,7 @@ paths:
     get:
       operationId: getCertificate
       summary: Consultar un certificado
-      tags: [Certificates]
+      tags: [Certificados]
       responses:
         "200":
           description: El certificado.
@@ -255,7 +261,7 @@ paths:
       description: |
         Elimina un certificado de la cuenta. Si eliminas el certificado activo,
         la cuenta queda sin certificado de firma hasta que subas otro.
-      tags: [Certificates]
+      tags: [Certificados]
       responses:
         "204":
           description: El certificado fue eliminado.
@@ -278,7 +284,7 @@ paths:
       operationId: listContacts
       summary: Listar contactos
       description: Devuelve los clientes y proveedores de la cuenta, ordenados por razón social, con paginación.
-      tags: [Contacts]
+      tags: [Contactos]
       parameters:
         - name: query
           in: query
@@ -321,7 +327,7 @@ paths:
     post:
       operationId: createContact
       summary: Crear un contacto
-      tags: [Contacts]
+      tags: [Contactos]
       requestBody:
         required: true
         content:
@@ -362,7 +368,7 @@ paths:
     get:
       operationId: getContact
       summary: Consultar un contacto
-      tags: [Contacts]
+      tags: [Contactos]
       responses:
         "200":
           description: El contacto.
@@ -380,7 +386,7 @@ paths:
       operationId: updateContact
       summary: Actualizar un contacto
       description: Envía solo los campos que quieras cambiar.
-      tags: [Contacts]
+      tags: [Contactos]
       requestBody:
         required: true
         content:
@@ -406,10 +412,279 @@ paths:
       operationId: deleteContact
       summary: Eliminar un contacto
       description: Solo se pueden eliminar contactos sin documentos asociados.
-      tags: [Contacts]
+      tags: [Contactos]
       responses:
         "204":
           description: El contacto fue eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/stores:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listStores
+      summary: Listar establecimientos
+      description: Devuelve los establecimientos de la cuenta, ordenados por código, con paginación.
+      tags: [Establecimientos]
+      parameters:
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los establecimientos de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stores, pagination]
+                properties:
+                  stores:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/StoreSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/stores/sync:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: syncStores
+      summary: Sincronizar establecimientos desde el SRI
+      description: |
+        Consulta los establecimientos de la cuenta en el SRI y crea uno por cada
+        establecimiento activo (`ABIERTO`) que aún no exista. Es idempotente: los
+        establecimientos ya registrados se omiten, así que puedes ejecutarlo las
+        veces que quieras.
+      tags: [Establecimientos]
+      responses:
+        "200":
+          description: Resumen de la sincronización.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created, skipped_inactive, errors]
+                properties:
+                  created:
+                    type: integer
+                    description: Establecimientos activos creados.
+                  skipped_inactive:
+                    type: integer
+                    description: Establecimientos omitidos por estar cerrados.
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/stores/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del establecimiento.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getStore
+      summary: Consultar un establecimiento
+      description: Incluye los puntos de emisión del establecimiento.
+      tags: [Establecimientos]
+      responses:
+        "200":
+          description: El establecimiento.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/emission_points:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listEmissionPoints
+      summary: Listar puntos de emisión
+      description: Devuelve los puntos de emisión de la cuenta, ordenados por código, con paginación.
+      tags: [Puntos de emisión]
+      parameters:
+        - name: store_id
+          in: query
+          description: Filtrar por establecimiento.
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los puntos de emisión de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [emission_points, pagination]
+                properties:
+                  emission_points:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmissionPointSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createEmissionPoint
+      summary: Crear un punto de emisión
+      tags: [Puntos de emisión]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmissionPointCreateRequest"
+      responses:
+        "201":
+          description: El punto de emisión creado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionPointEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/emission_points/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del punto de emisión.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getEmissionPoint
+      summary: Consultar un punto de emisión
+      tags: [Puntos de emisión]
+      responses:
+        "200":
+          description: El punto de emisión.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionPointEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateEmissionPoint
+      summary: Actualizar un punto de emisión
+      description: Envía solo los campos que quieras cambiar.
+      tags: [Puntos de emisión]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmissionPointUpdateRequest"
+      responses:
+        "200":
+          description: El punto de emisión actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionPointEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteEmissionPoint
+      summary: Eliminar un punto de emisión
+      description: Solo se pueden eliminar puntos de emisión sin documentos asociados.
+      tags: [Puntos de emisión]
+      responses:
+        "204":
+          description: El punto de emisión fue eliminado.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -433,7 +708,7 @@ paths:
       description: |
         Devuelve las facturas de la cuenta en el ambiente activo (pruebas o
         producción), de la más reciente a la más antigua, con paginación.
-      tags: [Invoices]
+      tags: [Facturas]
       parameters:
         - name: status
           in: query
@@ -494,7 +769,7 @@ paths:
         automáticamente del producto referenciado; solo envías el producto, la
         cantidad y el descuento. Para enviarla al SRI, usa luego el endpoint de
         envío.
-      tags: [Invoices]
+      tags: [Facturas]
       requestBody:
         required: true
         content:
@@ -536,7 +811,7 @@ paths:
       operationId: getInvoice
       summary: Consultar una factura
       description: Devuelve la factura con sus ítems, cliente y punto de emisión.
-      tags: [Invoices]
+      tags: [Facturas]
       responses:
         "200":
           description: La factura.
@@ -556,7 +831,7 @@ paths:
       description: |
         Edita una factura en borrador o rechazada. Puedes cambiar el cliente y el
         método de pago; si envías `items`, reemplaza todos los ítems actuales.
-      tags: [Invoices]
+      tags: [Facturas]
       requestBody:
         required: true
         content:
@@ -582,7 +857,7 @@ paths:
       operationId: deleteInvoice
       summary: Eliminar una factura
       description: Elimina una factura en borrador. Las facturas ya enviadas al SRI no se pueden eliminar.
-      tags: [Invoices]
+      tags: [Facturas]
       responses:
         "204":
           description: La factura fue eliminada.
@@ -619,7 +894,7 @@ paths:
         ocurre en segundo plano: la factura pasa a `pending` y luego a
         `authorized` o `rejected`. Consulta el estado final con `GET` de la
         factura.
-      tags: [Invoices]
+      tags: [Facturas]
       responses:
         "202":
           description: La factura fue encolada para envío (`pending`).
@@ -657,7 +932,7 @@ paths:
       description: |
         Anula una factura autorizada. Solo es posible hasta el día 7 del mes
         siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
-      tags: [Invoices]
+      tags: [Facturas]
       responses:
         "200":
           description: La factura anulada (`cancelled`).
@@ -1142,6 +1417,128 @@ components:
               type: string
             note:
               type: string
+    StoreSummary:
+      type: object
+      required: [id, code, name, address]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Código de 3 dígitos del establecimiento.
+        name:
+          type: string
+        address:
+          type: string
+    Store:
+      allOf:
+        - $ref: "#/components/schemas/StoreSummary"
+        - type: object
+          required: [emission_points]
+          properties:
+            phone:
+              type: [string, "null"]
+            email:
+              type: [string, "null"]
+            emission_points:
+              type: array
+              items:
+                type: object
+                required: [id, code]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  description:
+                    type: [string, "null"]
+    StoreEnvelope:
+      type: object
+      required: [store]
+      properties:
+        store:
+          $ref: "#/components/schemas/Store"
+    EmissionPointSummary:
+      type: object
+      required: [id, code, store_id, store_code]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Código de 3 dígitos del punto de emisión.
+        description:
+          type: [string, "null"]
+        store_id:
+          type: string
+          format: uuid
+        store_code:
+          type: string
+    EmissionPoint:
+      allOf:
+        - $ref: "#/components/schemas/EmissionPointSummary"
+        - type: object
+          properties:
+            next_sequential_test:
+              type: integer
+              description: Siguiente secuencial a usar en el ambiente de pruebas.
+            next_sequential_production:
+              type: integer
+              description: Siguiente secuencial a usar en producción.
+            created_at:
+              type: string
+              format: date-time
+    EmissionPointEnvelope:
+      type: object
+      required: [emission_point]
+      properties:
+        emission_point:
+          $ref: "#/components/schemas/EmissionPoint"
+    EmissionPointCreateRequest:
+      type: object
+      required: [emission_point]
+      properties:
+        emission_point:
+          type: object
+          required: [store_id, code]
+          properties:
+            store_id:
+              type: string
+              format: uuid
+              description: Establecimiento al que pertenece.
+            code:
+              type: string
+              description: Código de 3 dígitos, único por establecimiento.
+            description:
+              type: string
+            next_sequential_test:
+              type: integer
+              description: Secuencial inicial en pruebas (por defecto 1).
+            next_sequential_production:
+              type: integer
+              description: Secuencial inicial en producción (por defecto 1).
+    EmissionPointUpdateRequest:
+      type: object
+      required: [emission_point]
+      properties:
+        emission_point:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            store_id:
+              type: string
+              format: uuid
+            code:
+              type: string
+            description:
+              type: string
+            next_sequential_test:
+              type: integer
+            next_sequential_production:
+              type: integer
   responses:
     Unauthorized:
       description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
