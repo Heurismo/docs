@@ -1,71 +1,71 @@
 ---
 title: "Tu propia cuenta"
-description: "Cómo operar tu cuenta a través de la API de Tellen, desde generar un token hasta emitir y anular comprobantes ante el SRI."
+description: "Opera tu cuenta desde la API de Tellen: genera un token, sube tu certificado y emite, envía y anula comprobantes ante el SRI."
 ---
 
-Este es el flujo más común: usar la API para operar **tu propia cuenta**. Todas las solicitudes actúan sobre una cuenta identificada en la ruta (`/api/v1/accounts/{account_id}/...`), y en este caso ese identificador es siempre el de tu cuenta.
+Este es el caso más común: usar la API para operar tu propia cuenta. Cada solicitud lleva en la ruta el identificador de la cuenta sobre la que trabajas (`/api/v1/accounts/{account_id}/...`) y, cuando operas tu cuenta, ese identificador es siempre el tuyo.
 
-## De un vistazo
+## El flujo, paso a paso
 
 <Steps>
   <Step title="Genera un token de API">
-    Desde tu cuenta de Tellen generas un token con el formato `tellen_tk_...`. Lo envías en cada solicitud como `Authorization: Bearer tellen_tk_...`.
+    Desde tu cuenta de Tellen creas un token con el formato `tellen_tk_...` y lo envías en cada solicitud en la cabecera `Authorization: Bearer tellen_tk_...`.
 
     <Warning>
-      El token da acceso completo a tu cuenta. Guárdalo de forma segura y no lo compartas ni lo publiques en repositorios.
+      El token da acceso completo a tu cuenta. Guárdalo en un lugar seguro y nunca lo compartas ni lo subas a un repositorio.
     </Warning>
   </Step>
   <Step title="Identifica tu cuenta">
-    Consulta [Listar cuentas](/api-reference/listAccounts) para obtener el `account_id` de tu cuenta. Ese identificador va en la ruta de todas las solicitudes siguientes.
+    Llama a [Listar cuentas](/api-reference/listAccounts) para conocer el `account_id` de tu cuenta. Ese identificador va en la ruta de todas las solicitudes que hagas después.
 
     <Tip>
-      Una cuenta normal solo se ve a sí misma en este listado. Si administras varias cuentas (modelo plataforma), consulta [Cuentas hijas (plataforma)](/api-reference/cuentas-hijas).
+      Una cuenta común solo se ve a sí misma en este listado. Si administras varias cuentas (modelo plataforma), revisa [Cuentas hijas (plataforma)](/api-reference/cuentas-hijas).
     </Tip>
   </Step>
-  <Step title="Configura la firma electrónica">
-    Sube tu certificado digital `.p12` mediante [Subir un certificado de firma](/api-reference/createCertificate). Tellen verifica la contraseña, lee la fecha de expiración y lo deja como certificado activo de la cuenta.
+  <Step title="Configura tu firma electrónica">
+    Sube tu certificado digital `.p12` con [Subir un certificado de firma](/api-reference/createCertificate). Tellen comprueba la contraseña, lee su fecha de vencimiento y lo activa como el certificado de la cuenta.
 
-    Sin un certificado activo y vigente no puedes firmar comprobantes ante el SRI.
+    Necesitas un certificado activo y vigente para firmar comprobantes ante el SRI.
   </Step>
-  <Step title="Prepara establecimientos y puntos de emisión">
-    Los comprobantes se emiten desde un **punto de emisión** dentro de un **establecimiento**.
+  <Step title="Prepara tus establecimientos y puntos de emisión">
+    Cada comprobante se emite desde un **punto de emisión**, que pertenece a un **establecimiento**.
 
-    - Sincroniza tus establecimientos activos desde el SRI con [Sincronizar establecimientos](/api-reference/syncStores), o revísalos con [Listar establecimientos](/api-reference/listStores).
+    - Trae tus establecimientos activos desde el SRI con [Sincronizar establecimientos](/api-reference/syncStores), o consúltalos con [Listar establecimientos](/api-reference/listStores).
     - Crea los puntos de emisión que necesites con [Crear un punto de emisión](/api-reference/createEmissionPoint).
   </Step>
-  <Step title="Registra contactos y productos">
-    Antes de facturar, carga los datos que reutilizarás:
+  <Step title="Registra tus contactos y productos">
+    Antes de facturar, carga los datos que vas a reutilizar:
 
-    - **Contactos** (clientes y proveedores) con [Crear un contacto](/api-reference/createContact).
-    - **Productos y servicios** con los endpoints de productos.
+    - Tus **clientes y proveedores**, con [Crear un contacto](/api-reference/createContact).
+    - Tus **productos y servicios**, con los endpoints de productos.
   </Step>
-  <Step title="Emite comprobantes">
-    El flujo de una factura tiene dos momentos:
+  <Step title="Emite tus comprobantes">
+    Emitir una factura son dos llamadas:
 
-    1. **Créala** con [Crear una factura](/api-reference/createInvoice). Queda registrada en tu cuenta, pero aún no tiene efecto tributario.
-    2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/submitInvoice). Tellen genera el XML, lo firma con tu certificado y recibe la autorización con la clave de acceso.
+    1. **Créala** con [Crear una factura](/api-reference/createInvoice). Queda guardada en tu cuenta, pero todavía no tiene efecto tributario.
+    2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/submitInvoice). Tellen arma el XML, lo firma con tu certificado y te devuelve la autorización con la clave de acceso.
   </Step>
-  <Step title="Corrige o anula cuando sea necesario">
-    Si un comprobante ya autorizado necesita ajustarse o dejarse sin efecto, usa [Anular una factura](/api-reference/voidInvoice) o emite las notas de crédito y débito correspondientes.
+  <Step title="Corrige o anula cuando haga falta">
+    Para dejar sin efecto un comprobante ya autorizado, usa [Anular una factura](/api-reference/voidInvoice); para ajustarlo, emite la nota de crédito o débito que corresponda.
   </Step>
 </Steps>
 
-## Ambiente de pruebas y producción
+## Pruebas y producción
 
-Cada cuenta opera en el ambiente de **pruebas** o **producción** del SRI. Valida tu integración en pruebas —sin efecto tributario real— antes de emitir comprobantes en producción.
+Tu cuenta trabaja en el ambiente de **pruebas** o de **producción** del SRI. Prueba tu integración en pruebas —donde nada tiene efecto tributario— antes de emitir en producción.
 
 <Note>
-  El ambiente forma parte de la configuración de la cuenta. Los comprobantes emitidos en pruebas no tienen validez legal.
+  El ambiente es parte de la configuración de la cuenta. Los comprobantes que emites en pruebas no tienen validez legal.
 </Note>
 
 ## Facturación y planes
 
-Tu propio plan y suscripción se gestionan desde Stripe, no desde la API: al editar tu cuenta con la API **no puedes cambiar tu propio `plan`**. Las cuentas nuevas cuentan con una cantidad limitada de facturas gratuitas antes de requerir una suscripción de pago.
+Tu plan y tu suscripción se manejan desde Stripe, no desde la API: al editar tu cuenta **no puedes cambiar tu propio `plan`**. Toda cuenta nueva empieza con una cantidad limitada de facturas gratis antes de necesitar una suscripción de pago.
 
 ## Siguiente paso
 
-Consulta el detalle de cada endpoint, sus parámetros y respuestas en la sección **Endpoints** de esta misma pestaña.
+Encuentra el detalle de cada endpoint —sus parámetros y respuestas— en la sección **Endpoints** de esta misma pestaña.
 
 <Card title="Cuentas hijas (plataforma)" icon="sitemap" href="/api-reference/cuentas-hijas">
-  Si tu cuenta es una plataforma, aprende a aprovisionar y operar cuentas hijas.
+  ¿Tu cuenta es una plataforma? Aprende a crear y operar cuentas hijas.
 </Card>
