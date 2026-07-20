@@ -27,6 +27,7 @@
         "pages": [
           {
             "group": "Primeros pasos",
+            "icon": "rocket",
             "pages": [
               "introduccion",
               "primeros-pasos/configura-tu-cuenta",
@@ -35,10 +36,10 @@
           },
           {
             "group": "Producto",
+            "icon": "grid-2x2",
             "pages": [
               {
                 "group": "Ventas",
-                "icon": "dollar-sign",
                 "pages": [
                   "cotizaciones",
                   "ordenes-de-venta",
@@ -48,7 +49,6 @@
               },
               {
                 "group": "Contactos",
-                "icon": "person-standing",
                 "pages": [
                   "producto/organiza-tus-clientes",
                   "como-gestionar-y-consultar-el-historial-de-un-contacto"
@@ -56,7 +56,6 @@
               },
               {
                 "group": "Productos e Inventario",
-                "icon": "box",
                 "pages": [
                   "productos",
                   "como-gestionar-y-consultar-el-detalle-de-un-producto-o-servicio"
@@ -64,7 +63,6 @@
               },
               {
                 "group": "Documentos Emitidos ",
-                "icon": "file-spreadsheet",
                 "pages": [
                   "notas-de-credito-y-debito",
                   "como-emitir-una-liquidacion-de-compra"
@@ -82,6 +80,7 @@
           },
           {
             "group": "Casos de uso",
+            "icon": "briefcase",
             "pages": [
               "casos-de-uso/profesional-independiente",
               "casos-de-uso/pequenos-negocios"
@@ -89,6 +88,7 @@
           },
           {
             "group": "Recursos",
+            "icon": "book-open",
             "pages": [
               "recursos/checklist-de-onboarding",
               "recursos/preguntas-frecuentes"
@@ -101,6 +101,7 @@
         "groups": [
           {
             "group": "Cómo usar el API",
+            "icon": "book-open",
             "pages": [
               "api-reference/tu-propia-cuenta",
               "api-reference/cuentas-hijas"
@@ -108,6 +109,7 @@
           },
           {
             "group": "Endpoints",
+            "icon": "webhook",
             "openapi": {
               "source": "/api-reference/openapi.yaml",
               "directory": "api-reference"

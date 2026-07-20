@@ -30,7 +30,28 @@ tags:
   - name: Puntos de emisión
     description: Puntos de emisión por establecimiento, desde donde se emiten los comprobantes.
   - name: Productos
-    description: Catálogo de productos y servicios de la cuenta, con su configuración de impuestos e inventario.
+    description: |
+      Catálogo de productos y servicios de la cuenta, con su configuración de
+      impuestos e inventario.
+
+      **Variantes.** Cada producto tiene al menos una variante interna. Un
+      producto de un solo SKU se representa de forma plana (su variante por
+      defecto es un detalle de implementación y no aparece en la respuesta), por
+      lo que `variants` llega vacío. El arreglo `variants` solo lista variantes
+      **con nombre** (talla, color, etc.), cuando existen.
+
+      **Inventario.** El stock vive en las variantes, no en el producto; el campo
+      `stock` es un consolidado de solo lectura sobre las variantes vendibles.
+      Es `null` cuando el producto no controla inventario (todos los servicios, y
+      los bienes con el control desactivado), lo que permite distinguir "no
+      controla stock" de "controla stock, con 0 existencias".
+
+      **El stock no se edita directamente.** Las existencias se mueven a través
+      del kardex (entradas y salidas registradas por documentos autorizados,
+      compras o ajustes), nunca escribiendo `stock_quantity`. Al **crear** un
+      producto puedes fijar las existencias iniciales con `initial_stock`, que se
+      registra como una entrada en el kardex. En una **actualización**,
+      `initial_stock` se ignora.
   - name: Facturas
     description: Facturas de venta (comprobante electrónico 01).
 paths:
@@ -751,6 +772,10 @@ paths:
     post:
       operationId: createProduct
       summary: Crear un producto
+      description: |
+        Crea un producto o servicio. Para controlar inventario, envía
+        `track_stock: true` (se ignora en servicios) y, opcionalmente,
+        `initial_stock` para registrar las existencias iniciales en el kardex.
       tags: [Productos]
       requestBody:
         required: true
@@ -810,7 +835,10 @@ paths:
     patch:
       operationId: updateProduct
       summary: Actualizar un producto
-      description: Envía solo los campos que quieras cambiar.
+      description: |
+        Envía solo los campos que quieras cambiar. Las existencias no se editan
+        aquí: se mueven a través del kardex, así que `stock_quantity` no es
+        modificable e `initial_stock` se ignora.
       tags: [Productos]
       requestBody:
         required: true
@@ -1116,6 +1144,7 @@ components:
   schemas:
     Account:
       type: object
+      description: Forma resumida (para listados).
       required: [id, razon_social, nombre_comercial, ruc, plan]
       properties:
         id:
@@ -1133,12 +1162,59 @@ components:
         plan:
           type: string
           enum: [basico, profesional, empresarial]
+    AccountDetail:
+      description: Forma completa (al consultar, crear o actualizar una cuenta), con el perfil del SRI, datos de contacto y establecimientos.
+      allOf:
+        - $ref: "#/components/schemas/Account"
+        - type: object
+          properties:
+            dir_matriz:
+              type: string
+              description: Dirección de la matriz.
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            billing_email:
+              type: [string, "null"]
+            regimen:
+              type: [string, "null"]
+              enum: [general, negocio_popular, rimpe, null]
+            obligado_contabilidad:
+              type: boolean
+            agente_retencion:
+              type: boolean
+            contribuyente_especial:
+              type: boolean
+            exportador:
+              type: [boolean, "null"]
+            production_mode:
+              type: boolean
+              description: "true = ambiente de producción del SRI; false = pruebas."
+            stores:
+              type: array
+              description: Establecimientos de la cuenta.
+              items:
+                type: object
+                required: [id, code, name]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+            created_at:
+              type: string
+              format: date-time
     AccountEnvelope:
       type: object
       required: [account]
       properties:
         account:
-          $ref: "#/components/schemas/Account"
+          $ref: "#/components/schemas/AccountDetail"
     Certificate:
       type: object
       required: [id, name, active, expires_at]
@@ -1743,14 +1819,18 @@ components:
             stock:
               type: [object, "null"]
               description: Inventario del producto, o `null` si no controla stock.
-              required: [total, status]
+              required: [total]
               properties:
                 total:
                   type: number
                   description: Existencias actuales sumadas sobre las variantes vendibles.
                 status:
-                  type: string
-                  enum: [in_stock, low_stock, out_of_stock]
+                  type: [string, "null"]
+                  enum: [in_stock, low_stock, out_of_stock, "null"]
+                  description: |
+                    Estado consolidado de las variantes vendibles, o `null` si
+                    ninguna reporta estado (p. ej. un producto que controla stock
+                    pero sin variantes vendibles activas).
             variants:
               type: array
               description: Variantes con nombre. Vacío para un producto de un solo SKU.
