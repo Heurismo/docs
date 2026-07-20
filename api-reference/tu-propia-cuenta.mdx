@@ -1,0 +1,71 @@
+---
+title: "Tu propia cuenta"
+description: "Opera tu cuenta desde la API de Tellen: genera un token, sube tu certificado y emite, envía y anula comprobantes ante el SRI."
+---
+
+Este es el caso más común: usar la API para operar tu propia cuenta. Cada solicitud lleva en la ruta el identificador de la cuenta sobre la que trabajas (`/api/v1/accounts/{account_id}/...`) y, cuando operas tu cuenta, ese identificador es siempre el tuyo.
+
+## El flujo, paso a paso
+
+<Steps>
+  <Step title="Genera un token de API">
+    Desde tu cuenta de Tellen creas un token con el formato `tellen_tk_...` y lo envías con cada solicitud en la cabecera `Authorization: Bearer tellen_tk_...`.
+
+    <Warning>
+      El token da acceso completo a tu cuenta. Guárdalo en un lugar seguro y nunca lo compartas ni lo subas a un repositorio.
+    </Warning>
+  </Step>
+  <Step title="Identifica tu cuenta">
+    Llama a [Listar cuentas](/api-reference/cuentas/listar-cuentas) para conocer el `account_id` de tu cuenta. Ese identificador va en la ruta de todas las solicitudes que hagas después.
+
+    <Tip>
+      Una cuenta común solo se ve a sí misma en este listado. Si administras varias cuentas (modelo plataforma), revisa [Cuentas hijas (plataforma)](/api-reference/cuentas-hijas).
+    </Tip>
+  </Step>
+  <Step title="Configura tu firma electrónica">
+    Sube tu certificado digital `.p12` con [Subir un certificado de firma](/api-reference/certificados/subir-un-certificado-de-firma). Tellen comprueba la contraseña, lee su fecha de vencimiento y lo activa como el certificado de la cuenta.
+
+    Necesitas un certificado activo y vigente para firmar comprobantes ante el SRI.
+  </Step>
+  <Step title="Prepara tus establecimientos y puntos de emisión">
+    Cada comprobante se emite desde un **punto de emisión**, que pertenece a un **establecimiento**.
+
+    - Trae tus establecimientos activos desde el SRI con [Sincronizar establecimientos](/api-reference/establecimientos/sincronizar-establecimientos-desde-el-sri), o consúltalos con [Listar establecimientos](/api-reference/establecimientos/listar-establecimientos).
+    - Crea los puntos de emisión que necesites con [Crear un punto de emisión](/api-reference/puntos-de-emision/crear-un-punto-de-emision).
+  </Step>
+  <Step title="Registra tus contactos y productos">
+    Antes de facturar, carga los datos que vas a reutilizar:
+
+    - Tus **clientes y proveedores**, con [Crear un contacto](/api-reference/contactos/crear-un-contacto).
+    - Tus **productos y servicios**, con los endpoints de productos.
+  </Step>
+  <Step title="Emite tus comprobantes">
+    Emitir una factura son dos pasos:
+
+    1. **Créala** con [Crear una factura](/api-reference/facturas/crear-una-factura). Queda guardada en tu cuenta, pero todavía no tiene efecto tributario.
+    2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/facturas/enviar-una-factura-al-sri). Tellen arma el XML, lo firma con tu certificado y te devuelve la autorización con la clave de acceso.
+  </Step>
+  <Step title="Corrige o anula cuando haga falta">
+    Para dejar sin efecto un comprobante ya autorizado, usa [Anular una factura](/api-reference/facturas/anular-una-factura); para ajustarlo, emite la nota de crédito o débito que corresponda.
+  </Step>
+</Steps>
+
+## Pruebas y producción
+
+Tu cuenta trabaja en el ambiente de **pruebas** o de **producción** del SRI. Valida tu integración en pruebas —donde nada tiene efecto tributario— antes de emitir en producción.
+
+<Note>
+  El ambiente es parte de la configuración de la cuenta. Los comprobantes que emites en pruebas no tienen validez legal.
+</Note>
+
+## Facturación y planes
+
+Tu plan y tu suscripción se manejan desde Stripe, no desde la API: al editar tu cuenta **no puedes cambiar tu propio `plan`**. Toda cuenta nueva empieza con una cantidad limitada de facturas gratis antes de necesitar una suscripción de pago.
+
+## Siguiente paso
+
+Encuentra el detalle de cada endpoint —sus parámetros y respuestas— en la sección **Endpoints** de esta misma pestaña.
+
+<Card title="Cuentas hijas (plataforma)" icon="sitemap" href="/api-reference/cuentas-hijas">
+  ¿Tu cuenta es una plataforma? Aprende a crear y operar cuentas hijas.
+</Card>

@@ -1,0 +1,70 @@
+---
+title: "Cuentas hijas (plataforma)"
+description: "Si tu cuenta es una plataforma, crea cuentas hijas a partir de su RUC y opéralas por completo desde la API de Tellen, bajo un modelo de reventa."
+---
+
+Algunas cuentas de Tellen funcionan como **plataforma**: crean otras cuentas —las **cuentas hijas**— y pagan por su uso de Tellen. Es el modelo pensado para contadores, agencias y software que ofrecen facturación electrónica a sus propios clientes.
+
+Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitud, el identificador de la ruta (`/api/v1/accounts/{account_id}/...`) indica sobre qué cuenta hija estás trabajando.
+
+<Note>
+  Solo una cuenta con acceso de plataforma puede crear y operar cuentas hijas. Una cuenta común se administra únicamente a sí misma —para ese caso, revisa [Tu propia cuenta](/api-reference/tu-propia-cuenta). Si aún no tienes acceso de plataforma, escríbenos.
+</Note>
+
+## Cómo se relacionan una plataforma y sus hijas
+
+- Una **plataforma** administra tantas cuentas hijas como necesite.
+- Cada **cuenta hija** pertenece a una sola plataforma: la que la creó y la que paga por ella.
+- En [Listar cuentas](/api-reference/cuentas/listar-cuentas), la plataforma ve todas sus hijas, y sobre cada una lee y opera como si fuera su propia cuenta.
+
+## El flujo, paso a paso
+
+<Steps>
+  <Step title="Crea la cuenta hija con su RUC">
+    Crea la cuenta con [Crear una cuenta](/api-reference/cuentas/crear-una-cuenta) enviando solo lo que el SRI no conoce: el **RUC**, los datos de contacto (correo y teléfono) y el **plan**.
+
+    El resto del perfil —razón social, dirección, régimen y condiciones tributarias— lo **completa Tellen a partir del SRI**, que es la fuente oficial; por eso no puedes sobrescribirlo. Los establecimientos activos del RUC también se crean automáticamente en la cuenta hija.
+
+    <Note>
+      Si el RUC ya está registrado en Tellen, la cuenta no se crea: no puede haber dos cuentas con el mismo RUC.
+    </Note>
+  </Step>
+  <Step title="Configura su firma electrónica">
+    Una cuenta hija recién creada no tiene panel web para cargar su certificado, así que lo subes desde la API con [Subir un certificado de firma](/api-reference/certificados/subir-un-certificado-de-firma) sobre la ruta de esa hija. Envías el archivo `.p12` en base64 junto con su contraseña.
+
+    Sin un certificado activo y vigente, la cuenta hija no puede firmar comprobantes ante el SRI.
+  </Step>
+  <Step title="Crea sus puntos de emisión">
+    Los establecimientos se crearon junto con la cuenta. Consúltalos con [Listar establecimientos](/api-reference/establecimientos/listar-establecimientos) y agrega los puntos de emisión que necesites con [Crear un punto de emisión](/api-reference/puntos-de-emision/crear-un-punto-de-emision), siempre sobre la ruta de la cuenta hija.
+  </Step>
+  <Step title="Opera la cuenta hija">
+    De aquí en adelante el flujo es idéntico al de tu propia cuenta; solo cambia el `account_id` de la ruta por el de la hija. Registra sus contactos y productos, crea facturas con [Crear una factura](/api-reference/facturas/crear-una-factura) y envíalas al SRI con [Enviar una factura al SRI](/api-reference/facturas/enviar-una-factura-al-sri).
+
+    <Tip>
+      En el historial de la cuenta hija, los cambios hechos por la API quedan a nombre de su usuario de servicio ("Tellen API"), no del usuario de la plataforma.
+    </Tip>
+  </Step>
+  <Step title="Ajusta el plan y los datos cuando haga falta">
+    Como tú pagas por la cuenta hija, al editarla con [Actualizar una cuenta](/api-reference/cuentas/actualizar-una-cuenta) **sí puedes cambiar su `plan`** —algo que no puedes hacer con tu propia cuenta, cuyo plan viene de Stripe.
+  </Step>
+</Steps>
+
+## Cómo funciona el cobro
+
+Las cuentas hijas no pagan su propio uso de Tellen: lo cubre la plataforma.
+
+- Al crearla, la cuenta hija **hereda el correo de cobro** de la plataforma.
+- No tiene su propio cliente en Stripe; por eso su `plan` lo defines y lo cambias tú.
+- Empieza en el **ambiente de pruebas** del SRI, salvo que la pases a producción al crearla.
+
+<Warning>
+  Mientras una plataforma tenga cuentas hijas, no puede renunciar a su acceso de plataforma: sus hijas quedarían fuera del alcance de la API, pero seguirían generando cobros.
+</Warning>
+
+## Siguiente paso
+
+Encuentra el detalle de cada endpoint —sus parámetros y respuestas— en la sección **Endpoints** de esta misma pestaña.
+
+<Card title="Tu propia cuenta" icon="user" href="/api-reference/tu-propia-cuenta">
+  Repasa el flujo de emisión, que funciona igual en cada cuenta hija.
+</Card>
