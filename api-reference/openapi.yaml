@@ -29,6 +29,8 @@ tags:
     description: Establecimientos (sucursales) de la cuenta, sincronizados desde el SRI.
   - name: Puntos de emisión
     description: Puntos de emisión por establecimiento, desde donde se emiten los comprobantes.
+  - name: Productos
+    description: Catálogo de productos y servicios de la cuenta, con su configuración de impuestos e inventario.
   - name: Facturas
     description: Facturas de venta (comprobante electrónico 01).
 paths:
@@ -685,6 +687,160 @@ paths:
       responses:
         "204":
           description: El punto de emisión fue eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/products:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listProducts
+      summary: Listar productos
+      description: Devuelve los productos y servicios de la cuenta, ordenados por nombre, con paginación.
+      tags: [Productos]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por nombre, código, código secundario, descripción o GTIN.
+          schema:
+            type: string
+        - name: product_type
+          in: query
+          description: Filtrar por tipo.
+          schema:
+            type: string
+            enum: [bien, servicio]
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los productos de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products, pagination]
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProductSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createProduct
+      summary: Crear un producto
+      tags: [Productos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreateRequest"
+      responses:
+        "201":
+          description: El producto creado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/products/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del producto.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getProduct
+      summary: Consultar un producto
+      description: Incluye la configuración de impuestos, las variantes con nombre y el inventario.
+      tags: [Productos]
+      responses:
+        "200":
+          description: El producto.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProduct
+      summary: Actualizar un producto
+      description: Envía solo los campos que quieras cambiar.
+      tags: [Productos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdateRequest"
+      responses:
+        "200":
+          description: El producto actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteProduct
+      summary: Eliminar un producto
+      description: Solo se pueden eliminar productos sin documentos asociados.
+      tags: [Productos]
+      responses:
+        "204":
+          description: El producto fue eliminado.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1539,6 +1695,168 @@ components:
               type: integer
             next_sequential_production:
               type: integer
+    ProductSummary:
+      type: object
+      required: [id, name, product_type, price_before_tax, iva, iva_rate, track_stock]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: [string, "null"]
+          description: Código interno, único por cuenta.
+        product_type:
+          type: string
+          enum: [bien, servicio]
+        price_before_tax:
+          type: number
+          description: Precio unitario sin impuestos.
+        iva:
+          type: string
+          enum: ["0", "5", "8", "12", "15", no_objeto_iva, exento_iva]
+        iva_rate:
+          type: number
+          description: Porcentaje de IVA aplicado.
+        track_stock:
+          type: boolean
+          description: Si el producto controla inventario.
+    Product:
+      allOf:
+        - $ref: "#/components/schemas/ProductSummary"
+        - type: object
+          properties:
+            secondary_code:
+              type: [string, "null"]
+            gtin:
+              type: [string, "null"]
+            description:
+              type: [string, "null"]
+            unit_of_measurement:
+              type: [string, "null"]
+            has_ice:
+              type: boolean
+            ice_rate:
+              type: [number, "null"]
+              description: Porcentaje de ICE, o `null` si no aplica.
+            stock:
+              type: [object, "null"]
+              description: Inventario del producto, o `null` si no controla stock.
+              required: [total, status]
+              properties:
+                total:
+                  type: number
+                  description: Existencias actuales sumadas sobre las variantes vendibles.
+                status:
+                  type: string
+                  enum: [in_stock, low_stock, out_of_stock]
+            variants:
+              type: array
+              description: Variantes con nombre. Vacío para un producto de un solo SKU.
+              items:
+                type: object
+                required: [id, code, name, price_before_tax]
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  code:
+                    type: string
+                  name:
+                    type: string
+                  price_before_tax:
+                    type: number
+                  stock_quantity:
+                    type: number
+                    description: Existencias de la variante, si controla stock.
+            created_at:
+              type: string
+              format: date-time
+    ProductEnvelope:
+      type: object
+      required: [product]
+      properties:
+        product:
+          $ref: "#/components/schemas/Product"
+    ProductCreateRequest:
+      type: object
+      required: [product]
+      properties:
+        product:
+          type: object
+          required: [name, code, product_type, iva, price_before_tax]
+          properties:
+            name:
+              type: string
+            code:
+              type: string
+              description: Código interno, único por cuenta.
+            secondary_code:
+              type: string
+            gtin:
+              type: string
+            product_type:
+              type: string
+              enum: [bien, servicio]
+            description:
+              type: string
+            iva:
+              type: string
+              enum: ["0", "5", "8", "12", "15", no_objeto_iva, exento_iva]
+            unit_of_measurement:
+              type: string
+            price_before_tax:
+              type: number
+              description: Precio unitario sin impuestos.
+            catalog_ice_tax_id:
+              type: string
+              format: uuid
+              description: Impuesto ICE del catálogo, si aplica.
+            track_stock:
+              type: boolean
+              description: Activa el control de inventario (ignorado en servicios).
+            initial_stock:
+              type: number
+              description: Existencias iniciales, registradas en el kardex al crear.
+            low_stock_threshold:
+              type: number
+              description: Umbral para marcar stock bajo.
+    ProductUpdateRequest:
+      type: object
+      required: [product]
+      properties:
+        product:
+          type: object
+          description: Envía solo los campos que quieras cambiar. Las existencias no se editan aquí; se mueven a través del kardex.
+          properties:
+            name:
+              type: string
+            code:
+              type: string
+            secondary_code:
+              type: string
+            gtin:
+              type: string
+            product_type:
+              type: string
+              enum: [bien, servicio]
+            description:
+              type: string
+            iva:
+              type: string
+              enum: ["0", "5", "8", "12", "15", no_objeto_iva, exento_iva]
+            unit_of_measurement:
+              type: string
+            price_before_tax:
+              type: number
+            catalog_ice_tax_id:
+              type: string
+              format: uuid
+            track_stock:
+              type: boolean
+            low_stock_threshold:
+              type: number
   responses:
     Unauthorized:
       description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
