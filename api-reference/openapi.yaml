@@ -55,9 +55,12 @@ paths:
       operationId: createAccount
       summary: Crear una cuenta
       description: |
-        Crea una nueva cuenta que quedará bajo tu gestión. Disponible solo si tu
-        cuenta está habilitada para administrar varias cuentas; de lo contrario
-        la API responde `404`.
+        Provisiona una nueva cuenta bajo tu gestión a partir de su RUC. El perfil
+        del negocio y sus establecimientos activos se obtienen del SRI; tú solo
+        envías el RUC, los datos de contacto y el plan. Disponible solo si tu
+        cuenta está habilitada para administrar varias cuentas; de lo contrario la
+        API responde `404`. Si el RUC no existe en el SRI la API responde `404`, y
+        si ya está registrado en Tellen responde `409`.
       tags: [Accounts]
       requestBody:
         required: true
@@ -78,6 +81,18 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: El RUC ya está registrado en Tellen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
         "422":
           $ref: "#/components/responses/ValidationError"
   /api/v1/accounts/{id}:
@@ -599,18 +614,19 @@ paths:
       operationId: submitInvoice
       summary: Enviar una factura al SRI
       description: |
-        Envía una factura en borrador o rechazada al SRI para su autorización. La
-        cuenta debe tener un certificado de firma activo. El procesamiento ocurre
-        en segundo plano: la factura pasa a `pending` y luego a `authorized` o
-        `rejected`.
+        Encola una factura en borrador o rechazada para su autorización en el SRI.
+        La cuenta debe tener un certificado de firma activo. El procesamiento
+        ocurre en segundo plano: la factura pasa a `pending` y luego a
+        `authorized` o `rejected`. Consulta el estado final con `GET` de la
+        factura.
       tags: [Invoices]
       responses:
-        "200":
-          description: La factura, ahora en proceso de envío (`pending`).
+        "202":
+          description: La factura fue encolada para envío (`pending`).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceEnvelope"
+                $ref: "#/components/schemas/DocumentStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -648,7 +664,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InvoiceEnvelope"
+                $ref: "#/components/schemas/DocumentStatus"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -743,45 +759,24 @@ components:
       properties:
         account:
           type: object
-          required: [ruc, razon_social, nombre_comercial, dir_matriz, email, phone, plan]
+          required: [ruc, email, phone, plan]
+          description: |
+            Solo necesitas el RUC, los datos de contacto y el plan. El perfil del
+            negocio (razón social, dirección, régimen, obligaciones tributarias) y
+            los establecimientos activos se obtienen automáticamente del SRI y no
+            se pueden sobrescribir.
           properties:
             ruc:
               type: string
-              description: RUC ecuatoriano de 13 dígitos. Debe ser único.
-            razon_social:
-              type: string
-              description: Razón social (nombre legal registrado del negocio).
-            nombre_comercial:
-              type: string
-              description: Nombre comercial del negocio.
-            dir_matriz:
-              type: string
-              description: Dirección de la matriz (establecimiento principal).
+              description: RUC ecuatoriano de 13 dígitos. Debe ser único y existir en el SRI.
             email:
               type: string
               format: email
             phone:
               type: string
-            billing_email:
-              type: string
-              format: email
-              description: Correo de facturación. Si se omite, se hereda el de tu cuenta.
             plan:
               type: string
               enum: [basico, profesional, empresarial]
-            regimen:
-              type: string
-              enum: [general, negocio_popular, rimpe]
-            obligado_contabilidad:
-              type: boolean
-            agente_retencion:
-              type: boolean
-            contribuyente_especial:
-              type: boolean
-            exportador:
-              type: boolean
-            sector_turistico:
-              type: boolean
             production_mode:
               type: boolean
               description: Ambiente del SRI. Si se omite, la cuenta se crea en el ambiente de pruebas (`false`).
@@ -956,6 +951,17 @@ components:
       properties:
         invoice:
           $ref: "#/components/schemas/Invoice"
+    DocumentStatus:
+      type: object
+      description: Identificador y estado de un documento tras una acción de ciclo de vida (envío, anulación). Consulta el recurso completo con `GET`.
+      required: [id, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
     InvoiceItemRequest:
       type: object
       description: |
