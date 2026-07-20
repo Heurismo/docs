@@ -9,7 +9,7 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
 
 <Steps>
   <Step title="Genera un token de API">
-    Desde tu cuenta de Tellen creas un token con el formato `tellen_tk_...` y lo envías en cada solicitud en la cabecera `Authorization: Bearer tellen_tk_...`.
+    Desde tu cuenta de Tellen creas un token con el formato `tellen_tk_...` y lo envías con cada solicitud en la cabecera `Authorization: Bearer tellen_tk_...`.
 
     <Warning>
       El token da acceso completo a tu cuenta. Guárdalo en un lugar seguro y nunca lo compartas ni lo subas a un repositorio.
@@ -40,7 +40,7 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
     - Tus **productos y servicios**, con los endpoints de productos.
   </Step>
   <Step title="Emite tus comprobantes">
-    Emitir una factura son dos llamadas:
+    Emitir una factura son dos pasos:
 
     1. **Créala** con [Crear una factura](/api-reference/createInvoice). Queda guardada en tu cuenta, pero todavía no tiene efecto tributario.
     2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/submitInvoice). Tellen arma el XML, lo firma con tu certificado y te devuelve la autorización con la clave de acceso.
@@ -52,7 +52,7 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
 
 ## Pruebas y producción
 
-Tu cuenta trabaja en el ambiente de **pruebas** o de **producción** del SRI. Prueba tu integración en pruebas —donde nada tiene efecto tributario— antes de emitir en producción.
+Tu cuenta trabaja en el ambiente de **pruebas** o de **producción** del SRI. Valida tu integración en pruebas —donde nada tiene efecto tributario— antes de emitir en producción.
 
 <Note>
   El ambiente es parte de la configuración de la cuenta. Los comprobantes que emites en pruebas no tienen validez legal.

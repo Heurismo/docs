@@ -23,14 +23,14 @@ Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitu
   <Step title="Da de alta la cuenta hija con su RUC">
     Crea la cuenta con [Crear una cuenta](/api-reference/createAccount) enviando solo lo que el SRI no conoce: el **RUC**, los datos de contacto (correo y teléfono) y el **plan**.
 
-    El resto del perfil —razón social, dirección, régimen y condiciones tributarias— lo **completa Tellen a partir del SRI**, que es la fuente oficial; por eso no puedes sobrescribirlo. Los establecimientos activos del RUC también se crean solos como establecimientos de la cuenta hija.
+    El resto del perfil —razón social, dirección, régimen y condiciones tributarias— lo **completa Tellen a partir del SRI**, que es la fuente oficial; por eso no puedes sobrescribirlo. Los establecimientos activos del RUC también quedan dados de alta en la cuenta hija de forma automática.
 
     <Note>
       Si el RUC ya está registrado en Tellen, la cuenta no se crea: no puede haber dos cuentas con el mismo RUC.
     </Note>
   </Step>
   <Step title="Configura su firma electrónica">
-    Una cuenta hija recién creada no tiene panel web para cargar su certificado, así que lo instalas desde la API con [Subir un certificado de firma](/api-reference/createCertificate) sobre la ruta de esa hija. Envías el archivo `.p12` en base64 junto con su contraseña.
+    Una cuenta hija recién creada no tiene panel web para cargar su certificado, así que lo subes desde la API con [Subir un certificado de firma](/api-reference/createCertificate) sobre la ruta de esa hija. Envías el archivo `.p12` en base64 junto con su contraseña.
 
     Sin un certificado activo y vigente, la cuenta hija no puede firmar comprobantes ante el SRI.
   </Step>
@@ -55,10 +55,10 @@ Las cuentas hijas no pagan su propio uso de Tellen: lo cubre la plataforma.
 
 - Al crearla, la cuenta hija **hereda el correo de cobro** de la plataforma.
 - No tiene su propio cliente en Stripe; por eso su `plan` lo defines y lo cambias tú.
-- Arranca en el **ambiente de pruebas** del SRI, salvo que la pases a producción al crearla.
+- Empieza en el **ambiente de pruebas** del SRI, salvo que la pases a producción al crearla.
 
 <Warning>
-  Mientras una plataforma tenga cuentas hijas, no puede renunciar a su acceso de plataforma: sus hijas quedarían fuera de alcance para la API pero seguirían generando cobro.
+  Mientras una plataforma tenga cuentas hijas, no puede renunciar a su acceso de plataforma: sus hijas quedarían fuera del alcance de la API, pero seguirían generando cobros.
 </Warning>
 
 ## Siguiente paso
