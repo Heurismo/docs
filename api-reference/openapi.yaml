@@ -23,6 +23,8 @@ tags:
     description: Tu cuenta y, si administras varias, las cuentas que gestionas.
   - name: Certificates
     description: Certificados de firma electrónica (.p12) usados para firmar documentos ante el SRI.
+  - name: Contacts
+    description: Clientes y proveedores de la cuenta.
 paths:
   /api/v1/accounts:
     get:
@@ -248,6 +250,159 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/contacts:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listContacts
+      summary: Listar contactos
+      description: Devuelve los clientes y proveedores de la cuenta, ordenados por razón social, con paginación.
+      tags: [Contacts]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por razón social o identificación.
+          schema:
+            type: string
+        - name: contact_type
+          in: query
+          description: Filtrar por tipo.
+          schema:
+            type: string
+            enum: [cliente, proveedor]
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los contactos de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contacts, pagination]
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ContactSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createContact
+      summary: Crear un contacto
+      tags: [Contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactCreateRequest"
+      responses:
+        "201":
+          description: El contacto creado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/contacts/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del contacto.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getContact
+      summary: Consultar un contacto
+      tags: [Contacts]
+      responses:
+        "200":
+          description: El contacto.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateContact
+      summary: Actualizar un contacto
+      description: Envía solo los campos que quieras cambiar.
+      tags: [Contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdateRequest"
+      responses:
+        "200":
+          description: El contacto actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteContact
+      summary: Eliminar un contacto
+      description: Solo se pueden eliminar contactos sin documentos asociados.
+      tags: [Contacts]
+      responses:
+        "204":
+          description: El contacto fue eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /api/v1/accounts/{account_id}/invoices:
     parameters:
       - name: account_id
@@ -866,6 +1021,121 @@ components:
               description: Si se envía, reemplaza todos los ítems actuales.
               items:
                 $ref: "#/components/schemas/InvoiceItemRequest"
+    ContactSummary:
+      type: object
+      required: [id, razon_social, identificacion, tipo_identificacion, cliente, proveedor]
+      properties:
+        id:
+          type: string
+          format: uuid
+        razon_social:
+          type: string
+        identificacion:
+          type: string
+          description: RUC, cédula, pasaporte, etc.
+        tipo_identificacion:
+          type: string
+          description: Código SRI del tipo de identificación.
+        cliente:
+          type: boolean
+        proveedor:
+          type: boolean
+    Contact:
+      allOf:
+        - $ref: "#/components/schemas/ContactSummary"
+        - type: object
+          properties:
+            nombre_comercial:
+              type: [string, "null"]
+            tipo_contribuyente:
+              type: [string, "null"]
+            email:
+              type: [string, "null"]
+            phone:
+              type: [string, "null"]
+            mobile_phone:
+              type: [string, "null"]
+            address:
+              type: [string, "null"]
+            note:
+              type: [string, "null"]
+            created_at:
+              type: string
+              format: date-time
+    ContactEnvelope:
+      type: object
+      required: [contact]
+      properties:
+        contact:
+          $ref: "#/components/schemas/Contact"
+    ContactCreateRequest:
+      type: object
+      required: [contact]
+      properties:
+        contact:
+          type: object
+          required: [razon_social, tipo_identificacion, identificacion]
+          description: Marca al menos uno de `cliente` o `proveedor`.
+          properties:
+            razon_social:
+              type: string
+            nombre_comercial:
+              type: string
+            tipo_identificacion:
+              type: string
+              description: Código SRI del tipo de identificación.
+            identificacion:
+              type: string
+            cliente:
+              type: boolean
+            proveedor:
+              type: boolean
+            tipo_contribuyente:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            mobile_phone:
+              type: string
+            address:
+              type: string
+            note:
+              type: string
+    ContactUpdateRequest:
+      type: object
+      required: [contact]
+      properties:
+        contact:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            razon_social:
+              type: string
+            nombre_comercial:
+              type: string
+            tipo_identificacion:
+              type: string
+            identificacion:
+              type: string
+            cliente:
+              type: boolean
+            proveedor:
+              type: boolean
+            tipo_contribuyente:
+              type: string
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            mobile_phone:
+              type: string
+            address:
+              type: string
+            note:
+              type: string
   responses:
     Unauthorized:
       description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
