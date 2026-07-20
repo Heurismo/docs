@@ -40,9 +40,9 @@
                 "group": "Ventas",
                 "icon": "dollar-sign",
                 "pages": [
-                  "coti",
-                  "ordenes",
-                  "ventas-y-facturacion",
+                  "cotizaciones",
+                  "ordenes-de-venta",
+                  "producto/emite-comprobantes",
                   "como-anular-una-factura"
                 ]
               },
@@ -50,7 +50,7 @@
                 "group": "Contactos",
                 "icon": "person-standing",
                 "pages": [
-                  "contacto",
+                  "producto/organiza-tus-clientes",
                   "como-gestionar-y-consultar-el-historial-de-un-contacto"
                 ]
               },
