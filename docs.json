@@ -60,7 +60,7 @@
         "icon": "map"
       },
       {
-        "tab": "API Reference",
+        "tab": "API",
         "groups": [
           {
             "group": "Endpoints",
