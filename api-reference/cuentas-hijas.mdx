@@ -1,29 +1,29 @@
 ---
 title: "Cuentas hijas (plataforma)"
-description: "Si tu cuenta es una plataforma, da de alta cuentas hijas a partir de su RUC y opéralas por completo desde la API de Tellen, bajo un modelo de reventa."
+description: "Si tu cuenta es una plataforma, crea cuentas hijas a partir de su RUC y opéralas por completo desde la API de Tellen, bajo un modelo de reventa."
 ---
 
-Algunas cuentas de Tellen funcionan como **plataforma**: dan de alta a otras cuentas —las **cuentas hijas**— y pagan por su uso de Tellen. Es el modelo pensado para contadores, agencias y software que ofrecen facturación electrónica a sus propios clientes.
+Algunas cuentas de Tellen funcionan como **plataforma**: crean otras cuentas —las **cuentas hijas**— y pagan por su uso de Tellen. Es el modelo pensado para contadores, agencias y software que ofrecen facturación electrónica a sus propios clientes.
 
 Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitud, el identificador de la ruta (`/api/v1/accounts/{account_id}/...`) indica sobre qué cuenta hija estás trabajando.
 
 <Note>
-  Solo una cuenta con acceso de plataforma puede dar de alta y operar cuentas hijas. Una cuenta común se administra únicamente a sí misma —para ese caso, revisa [Tu propia cuenta](/api-reference/tu-propia-cuenta). Si aún no tienes acceso de plataforma, escríbenos.
+  Solo una cuenta con acceso de plataforma puede crear y operar cuentas hijas. Una cuenta común se administra únicamente a sí misma —para ese caso, revisa [Tu propia cuenta](/api-reference/tu-propia-cuenta). Si aún no tienes acceso de plataforma, escríbenos.
 </Note>
 
 ## Cómo se relacionan una plataforma y sus hijas
 
 - Una **plataforma** administra tantas cuentas hijas como necesite.
-- Cada **cuenta hija** pertenece a una sola plataforma: la que la dio de alta y la que paga por ella.
+- Cada **cuenta hija** pertenece a una sola plataforma: la que la creó y la que paga por ella.
 - En [Listar cuentas](/api-reference/listAccounts), la plataforma ve todas sus hijas, y sobre cada una lee y opera como si fuera su propia cuenta.
 
 ## El flujo, paso a paso
 
 <Steps>
-  <Step title="Da de alta la cuenta hija con su RUC">
+  <Step title="Crea la cuenta hija con su RUC">
     Crea la cuenta con [Crear una cuenta](/api-reference/createAccount) enviando solo lo que el SRI no conoce: el **RUC**, los datos de contacto (correo y teléfono) y el **plan**.
 
-    El resto del perfil —razón social, dirección, régimen y condiciones tributarias— lo **completa Tellen a partir del SRI**, que es la fuente oficial; por eso no puedes sobrescribirlo. Los establecimientos activos del RUC también quedan dados de alta en la cuenta hija de forma automática.
+    El resto del perfil —razón social, dirección, régimen y condiciones tributarias— lo **completa Tellen a partir del SRI**, que es la fuente oficial; por eso no puedes sobrescribirlo. Los establecimientos activos del RUC también se crean automáticamente en la cuenta hija.
 
     <Note>
       Si el RUC ya está registrado en Tellen, la cuenta no se crea: no puede haber dos cuentas con el mismo RUC.
@@ -35,7 +35,7 @@ Con un solo token de plataforma operas todas tus cuentas hijas. En cada solicitu
     Sin un certificado activo y vigente, la cuenta hija no puede firmar comprobantes ante el SRI.
   </Step>
   <Step title="Crea sus puntos de emisión">
-    Los establecimientos ya quedaron creados al dar de alta la cuenta. Consúltalos con [Listar establecimientos](/api-reference/listStores) y agrega los puntos de emisión que necesites con [Crear un punto de emisión](/api-reference/createEmissionPoint), siempre sobre la ruta de la cuenta hija.
+    Los establecimientos se crearon junto con la cuenta. Consúltalos con [Listar establecimientos](/api-reference/listStores) y agrega los puntos de emisión que necesites con [Crear un punto de emisión](/api-reference/createEmissionPoint), siempre sobre la ruta de la cuenta hija.
   </Step>
   <Step title="Opera la cuenta hija">
     De aquí en adelante el flujo es idéntico al de tu propia cuenta; solo cambia el `account_id` de la ruta por el de la hija. Registra sus contactos y productos, crea facturas con [Crear una factura](/api-reference/createInvoice) y envíalas al SRI con [Enviar una factura al SRI](/api-reference/submitInvoice).
