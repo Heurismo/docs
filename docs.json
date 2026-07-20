@@ -100,6 +100,13 @@
         "tab": "API",
         "groups": [
           {
+            "group": "Cómo usar el API",
+            "pages": [
+              "api-reference/ciclo-de-vida-de-tu-cuenta",
+              "api-reference/ciclo-de-vida-cuentas-hijas"
+            ]
+          },
+          {
             "group": "Endpoints",
             "openapi": {
               "source": "/api-reference/openapi.yaml",
