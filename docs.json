@@ -76,10 +76,10 @@
                   "sincronizacion-sri-plan-profesional",
                   "importacion-en-lote-plan-basico"
                 ]
-              }
+              },
+              "producto/establecimientos-y-puntos-de-emision"
             ]
           },
-          "producto/establecimientos-y-puntos-de-emision",
           {
             "group": "Casos de uso",
             "pages": [
