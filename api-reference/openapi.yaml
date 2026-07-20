@@ -1,0 +1,899 @@
+openapi: 3.1.0
+info:
+  title: Tellen API
+  version: "1.0.0"
+  description: |
+    API REST de Tellen para facturación electrónica en Ecuador.
+
+    Autentícate con un token de API (`Authorization: Bearer tellen_tk_...`) que
+    generas desde tu cuenta de Tellen. Todas las solicitudes actúan sobre una
+    cuenta, indicada por su identificador en la ruta:
+    `/api/v1/accounts/{account_id}/...`.
+
+    Normalmente ese identificador es el de tu propia cuenta. Si administras
+    varias cuentas, usa el identificador de cada una para operar sobre ella. Si
+    intentas acceder a una cuenta que no administras, la API responde `404`.
+servers:
+  - url: https://dashboard.tellen.app
+    description: Producción
+security:
+  - bearerAuth: []
+tags:
+  - name: Accounts
+    description: Tu cuenta y, si administras varias, las cuentas que gestionas.
+  - name: Certificates
+    description: Certificados de firma electrónica (.p12) usados para firmar documentos ante el SRI.
+paths:
+  /api/v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: Listar cuentas
+      description: |
+        Devuelve las cuentas a las que puedes acceder con tu token: tu propia
+        cuenta y, si administras varias, todas las que gestionas.
+      tags: [Accounts]
+      responses:
+        "200":
+          description: Las cuentas a las que puedes acceder.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createAccount
+      summary: Crear una cuenta
+      description: |
+        Crea una nueva cuenta que quedará bajo tu gestión. Disponible solo si tu
+        cuenta está habilitada para administrar varias cuentas; de lo contrario
+        la API responde `404`.
+      tags: [Accounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountCreateRequest"
+      responses:
+        "201":
+          description: La cuenta creada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAccount
+      summary: Consultar una cuenta
+      tags: [Accounts]
+      responses:
+        "200":
+          description: La cuenta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAccount
+      summary: Actualizar una cuenta
+      description: |
+        Modifica los datos de tu cuenta o de una cuenta que administras. Envía
+        solo los campos que quieras cambiar.
+
+        El plan de tu propia cuenta se gestiona desde tu suscripción, por lo que
+        el campo `plan` se ignora al editar tu cuenta; solo se aplica al editar
+        una cuenta que administras.
+      tags: [Accounts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountUpdateRequest"
+      responses:
+        "200":
+          description: La cuenta actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/certificates:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listCertificates
+      summary: Listar certificados
+      description: Devuelve los certificados de firma de la cuenta, del más reciente al más antiguo.
+      tags: [Certificates]
+      responses:
+        "200":
+          description: Los certificados de la cuenta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [certificates]
+                properties:
+                  certificates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Certificate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createCertificate
+      summary: Subir un certificado de firma
+      description: |
+        Sube un certificado de firma electrónica (.p12 / PKCS#12) para la cuenta.
+        Envía el archivo codificado en base64 junto con su contraseña. Si la
+        contraseña es correcta, el certificado queda como el certificado activo
+        de la cuenta y se usa para firmar sus documentos electrónicos.
+      tags: [Certificates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CertificateCreateRequest"
+      responses:
+        "201":
+          description: El certificado subido, ahora activo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/certificates/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del certificado.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getCertificate
+      summary: Consultar un certificado
+      tags: [Certificates]
+      responses:
+        "200":
+          description: El certificado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteCertificate
+      summary: Eliminar un certificado
+      description: |
+        Elimina un certificado de la cuenta. Si eliminas el certificado activo,
+        la cuenta queda sin certificado de firma hasta que subas otro.
+      tags: [Certificates]
+      responses:
+        "204":
+          description: El certificado fue eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/invoices:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listInvoices
+      summary: Listar facturas
+      description: |
+        Devuelve las facturas de la cuenta en el ambiente activo (pruebas o
+        producción), de la más reciente a la más antigua, con paginación.
+      tags: [Invoices]
+      parameters:
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: contact_id
+          in: query
+          description: Filtrar por cliente.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Facturas emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Facturas emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las facturas de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invoices, pagination]
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/InvoiceSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createInvoice
+      summary: Crear una factura
+      description: |
+        Crea una factura en borrador. Los impuestos de cada ítem se derivan
+        automáticamente del producto referenciado; solo envías el producto, la
+        cantidad y el descuento. Para enviarla al SRI, usa luego el endpoint de
+        envío.
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCreateRequest"
+      responses:
+        "201":
+          description: La factura creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getInvoice
+      summary: Consultar una factura
+      description: Devuelve la factura con sus ítems, cliente y punto de emisión.
+      tags: [Invoices]
+      responses:
+        "200":
+          description: La factura.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateInvoice
+      summary: Editar una factura
+      description: |
+        Edita una factura en borrador o rechazada. Puedes cambiar el cliente y el
+        método de pago; si envías `items`, reemplaza todos los ítems actuales.
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceUpdateRequest"
+      responses:
+        "200":
+          description: La factura actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteInvoice
+      summary: Eliminar una factura
+      description: Elimina una factura en borrador. Las facturas ya enviadas al SRI no se pueden eliminar.
+      tags: [Invoices]
+      responses:
+        "204":
+          description: La factura fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitInvoice
+      summary: Enviar una factura al SRI
+      description: |
+        Envía una factura en borrador o rechazada al SRI para su autorización. La
+        cuenta debe tener un certificado de firma activo. El procesamiento ocurre
+        en segundo plano: la factura pasa a `pending` y luego a `authorized` o
+        `rejected`.
+      tags: [Invoices]
+      responses:
+        "200":
+          description: La factura, ahora en proceso de envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidInvoice
+      summary: Anular una factura
+      description: |
+        Anula una factura autorizada. Solo es posible hasta el día 7 del mes
+        siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
+      tags: [Invoices]
+      responses:
+        "200":
+          description: La factura anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token de API enviado como `Authorization: Bearer tellen_tk_...`. Genera
+        tu token desde tu cuenta de Tellen. Tu cuenta debe tener el acceso a la
+        API habilitado.
+  schemas:
+    Account:
+      type: object
+      required: [id, razon_social, nombre_comercial, ruc, plan]
+      properties:
+        id:
+          type: string
+          format: uuid
+        razon_social:
+          type: string
+          description: Razón social (nombre legal registrado del negocio).
+        nombre_comercial:
+          type: string
+          description: Nombre comercial del negocio.
+        ruc:
+          type: string
+          description: RUC ecuatoriano de 13 dígitos.
+        plan:
+          type: string
+          enum: [basico, profesional, empresarial]
+    AccountEnvelope:
+      type: object
+      required: [account]
+      properties:
+        account:
+          $ref: "#/components/schemas/Account"
+    Certificate:
+      type: object
+      required: [id, name, active, expires_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Nombre generado del certificado (incluye el RUC y la fecha de vencimiento).
+        active:
+          type: boolean
+          description: Si es el certificado activo de la cuenta (solo uno lo está a la vez).
+        expires_at:
+          type: [string, "null"]
+          format: date-time
+          description: Fecha de vencimiento del certificado.
+    CertificateEnvelope:
+      type: object
+      required: [certificate]
+      properties:
+        certificate:
+          $ref: "#/components/schemas/Certificate"
+    CertificateCreateRequest:
+      type: object
+      required: [certificate]
+      properties:
+        certificate:
+          type: object
+          required: [p12_file, p12_password]
+          properties:
+            p12_file:
+              type: string
+              format: byte
+              description: Archivo .p12 (PKCS#12) codificado en base64.
+            p12_password:
+              type: string
+              description: Contraseña del certificado .p12.
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Mensaje de error descriptivo, en español.
+    AccountCreateRequest:
+      type: object
+      required: [account]
+      properties:
+        account:
+          type: object
+          required: [ruc, razon_social, nombre_comercial, dir_matriz, email, phone, plan]
+          properties:
+            ruc:
+              type: string
+              description: RUC ecuatoriano de 13 dígitos. Debe ser único.
+            razon_social:
+              type: string
+              description: Razón social (nombre legal registrado del negocio).
+            nombre_comercial:
+              type: string
+              description: Nombre comercial del negocio.
+            dir_matriz:
+              type: string
+              description: Dirección de la matriz (establecimiento principal).
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            billing_email:
+              type: string
+              format: email
+              description: Correo de facturación. Si se omite, se hereda el de tu cuenta.
+            plan:
+              type: string
+              enum: [basico, profesional, empresarial]
+            regimen:
+              type: string
+              enum: [general, negocio_popular, rimpe]
+            obligado_contabilidad:
+              type: boolean
+            agente_retencion:
+              type: boolean
+            contribuyente_especial:
+              type: boolean
+            exportador:
+              type: boolean
+            sector_turistico:
+              type: boolean
+            production_mode:
+              type: boolean
+              description: Ambiente del SRI. Si se omite, la cuenta se crea en el ambiente de pruebas (`false`).
+    AccountUpdateRequest:
+      type: object
+      required: [account]
+      properties:
+        account:
+          type: object
+          description: |
+            Envía solo los campos que quieras cambiar. El campo `plan` se ignora
+            al editar tu propia cuenta y solo se aplica al editar una cuenta que
+            administras.
+          properties:
+            razon_social:
+              type: string
+              description: Razón social (nombre legal registrado del negocio).
+            nombre_comercial:
+              type: string
+              description: Nombre comercial del negocio.
+            dir_matriz:
+              type: string
+              description: Dirección de la matriz (establecimiento principal).
+            email:
+              type: string
+              format: email
+            phone:
+              type: string
+            billing_email:
+              type: string
+              format: email
+            plan:
+              type: string
+              enum: [basico, profesional, empresarial]
+            regimen:
+              type: string
+              enum: [general, negocio_popular, rimpe]
+            obligado_contabilidad:
+              type: boolean
+            agente_retencion:
+              type: boolean
+            contribuyente_especial:
+              type: boolean
+            exportador:
+              type: boolean
+            sector_turistico:
+              type: boolean
+            production_mode:
+              type: boolean
+    Pagination:
+      type: object
+      required: [page, total_pages, total_count]
+      properties:
+        page:
+          type: integer
+        total_pages:
+          type: integer
+        total_count:
+          type: integer
+    InvoiceSummary:
+      type: object
+      required: [id, status, sequential, emission_date, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Secuencial completo (establecimiento-punto-secuencial).
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+          description: Razón social del cliente.
+        total:
+          type: number
+          description: Total de la factura, con impuestos.
+    InvoiceItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_id:
+          type: [string, "null"]
+          format: uuid
+        code:
+          type: [string, "null"]
+        description:
+          type: string
+        quantity:
+          type: number
+        unit_price:
+          type: number
+        discount:
+          type: number
+        subtotal:
+          type: number
+        tax_rate:
+          type: number
+          description: Porcentaje de IVA aplicado.
+        tax_value:
+          type: number
+        total:
+          type: number
+    Invoice:
+      type: object
+      required: [id, status, sequential, emission_date, total, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+        emission_date:
+          type: string
+          format: date
+        contact:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            razon_social:
+              type: [string, "null"]
+            identificacion:
+              type: [string, "null"]
+        emission_point:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: [string, "null"]
+            store_code:
+              type: [string, "null"]
+        payment_method:
+          type: string
+          description: Código SRI de forma de pago.
+        total_without_taxes:
+          type: number
+        total_discount:
+          type: number
+        total:
+          type: number
+        access_key:
+          type: [string, "null"]
+          description: Clave de acceso de 49 dígitos (presente una vez enviada al SRI).
+        authorization_number:
+          type: [string, "null"]
+        error_message:
+          type: [string, "null"]
+          description: Motivo del rechazo, cuando el estado es `rejected`.
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceItem"
+    InvoiceEnvelope:
+      type: object
+      required: [invoice]
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+    InvoiceItemRequest:
+      type: object
+      description: |
+        Referencia un producto por `product_variant_id` (preferido) o por
+        `product_id` (usa la variante por defecto del producto). Los impuestos
+        se derivan del producto.
+      properties:
+        product_variant_id:
+          type: string
+          format: uuid
+          description: ID de la variante del producto. Preferido.
+        product_id:
+          type: string
+          format: uuid
+          description: ID del producto. Atajo que resuelve a su variante por defecto.
+        quantity:
+          type: number
+          description: Cantidad (por defecto 1).
+        unit_price:
+          type: number
+          description: Precio unitario. Si se omite, usa el de la variante.
+        discount:
+          type: number
+          description: Descuento (por defecto 0).
+    InvoiceCreateRequest:
+      type: object
+      required: [invoice]
+      properties:
+        invoice:
+          type: object
+          required: [contact_id, emission_point_id, items]
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+              description: Cliente de la factura.
+            emission_point_id:
+              type: string
+              format: uuid
+            payment_method:
+              type: string
+              description: Código SRI de forma de pago (por defecto `20`).
+            items:
+              type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/InvoiceItemRequest"
+    InvoiceUpdateRequest:
+      type: object
+      required: [invoice]
+      properties:
+        invoice:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+            payment_method:
+              type: string
+            items:
+              type: array
+              description: Si se envía, reemplaza todos los ítems actuales.
+              items:
+                $ref: "#/components/schemas/InvoiceItemRequest"
+  responses:
+    Unauthorized:
+      description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Tu cuenta no tiene el acceso a la API habilitado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: La cuenta no existe o no la administras.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Los datos enviados no son válidos.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [errors]
+            properties:
+              errors:
+                type: array
+                items:
+                  type: string

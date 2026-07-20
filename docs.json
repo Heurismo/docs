@@ -60,8 +60,16 @@
         "icon": "map"
       },
       {
-        "tab": "Test",
-        "openapi": "https://dashboard.tellen.app/api/v1/openapi.yaml"
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "openapi": {
+              "source": "/api-reference/openapi.yaml",
+              "directory": "api-reference"
+            }
+          }
+        ]
       }
     ]
   },
