@@ -1,0 +1,93 @@
+---
+title: "Facturación electrónica para software y plataformas"
+description: "Ofrece facturación electrónica al SRI dentro de tu propio producto —ERP, POS, sistema de gestión o SaaS— sin construir la integración con el SRI desde cero. Tellen es tu motor de facturación."
+---
+
+Si tienes un software que usan negocios ecuatorianos —un ERP, un punto de venta, un sistema de gestión, un SaaS de cualquier tipo— tarde o temprano tus clientes te piden lo mismo: **"¿y puedo facturar desde aquí?"**. Con Tellen ofreces facturación electrónica al SRI dentro de tu propio producto, sin construir la integración con el SRI desde cero y sin volverte experto en normativa tributaria.
+
+Tus clientes facturan sin salir de tu producto. Tú te enfocas en construirlo; Tellen se encarga de la facturación.
+
+## ¿Te suena familiar?
+
+Estos son los problemas más comunes que enfrenta un equipo de producto cuando sus clientes necesitan facturar:
+
+<AccordionGroup>
+  <Accordion title="Tus clientes te piden facturar desde tu producto, pero construir la integración con el SRI es enorme">
+    Emitir un comprobante válido implica generar el XML según el esquema del SRI, firmarlo digitalmente, manejar autorizaciones, rechazos y reintentos. Es un proyecto de meses que te distrae de tu producto principal.
+  </Accordion>
+  <Accordion title="La normativa del SRI cambia y mantenerte al día no es tu negocio">
+    Los esquemas, los códigos y las reglas tributarias se actualizan. Cada cambio te obliga a parar y ajustar tu integración, cuando tu equipo debería estar construyendo lo que te diferencia.
+  </Accordion>
+  <Accordion title="Cada cliente tuyo tiene su propio RUC, certificado y configuración">
+    Ofrecer facturación no es un solo negocio: es uno por cada cliente que tienes. Aprovisionar, configurar y operar decenas o cientos de cuentas distintas se vuelve inmanejable sin la herramienta adecuada.
+  </Accordion>
+  <Accordion title="No quieres que tus clientes tengan que salir de tu producto a otra herramienta para facturar">
+    Si tus usuarios deben cambiar a otro sistema para emitir sus comprobantes, la experiencia se rompe y tu producto pierde valor frente a uno que sí lo integra todo.
+  </Accordion>
+  <Accordion title="Cobrar y facturar por separado te complica la operación">
+    Manejar la facturación de todos tus clientes con contratos y pagos individuales a un proveedor externo es un dolor de cabeza administrativo que crece con cada cliente nuevo.
+  </Accordion>
+</AccordionGroup>
+
+## Cómo ayuda Tellen
+
+### Facturación electrónica lista para integrar
+
+Tellen es el motor de facturación detrás de tu producto. Conectas una sola API y cada uno de tus clientes queda habilitado para emitir comprobantes al SRI sin salir de tu interfaz.
+
+<Steps>
+  <Step title="Aprovisionas la cuenta de tu cliente con solo su RUC">
+    Tellen completa automáticamente los datos del negocio —razón social, dirección, régimen, establecimientos— desde el SRI. Tú solo aportas el RUC, el contacto y el plan.
+  </Step>
+  <Step title="Tu cliente factura desde tu producto">
+    Crea sus contactos, su catálogo y emite facturas con tu propia interfaz. Tellen genera el XML, lo firma y lo envía al SRI por debajo.
+  </Step>
+  <Step title="Recibes la confirmación y la muestras en tu producto">
+    Cuando el SRI autoriza el comprobante, Tellen te lo notifica con su clave de acceso. Tu cliente ve el resultado sin salir de tu producto.
+  </Step>
+</Steps>
+
+### Todo el negocio de facturación, desde un solo lugar
+
+Administras las cuentas de todos tus clientes con una sola credencial. Cada cliente es una cuenta independiente —con su propio RUC, certificado y ambiente— pero tú las operas todas desde tu integración, sin contratos individuales por cada uno.
+
+<Note>
+  Tellen te cobra a ti, la plataforma. Tus clientes no manejan su propia suscripción con Tellen: la facturación es parte de tu producto.
+</Note>
+
+## Funcionalidades clave para tu plataforma
+
+<CardGroup cols={2}>
+  <Card title="Aprovisionamiento con solo el RUC" icon="building">
+    Crea la cuenta de un cliente en una sola llamada. El perfil del negocio y sus establecimientos se traen automáticamente del SRI.
+  </Card>
+  <Card title="Una API para todos tus clientes" icon="network">
+    Opera todas las cuentas desde una sola credencial. Cada solicitud actúa sobre el cliente que indiques, con aislamiento total entre ellos.
+  </Card>
+  <Card title="El SRI, resuelto por ti" icon="circle-check">
+    Generación del XML, firma digital, envío, autorización y reintentos: Tellen se encarga de la parte técnica y se mantiene al día con la normativa.
+  </Card>
+  <Card title="Ambiente de pruebas" icon="flask">
+    Valida toda tu integración en el ambiente de pruebas del SRI —sin efecto tributario— antes de emitir comprobantes reales en producción.
+  </Card>
+</CardGroup>
+
+## Ideal si eres
+
+- Un **software vertical** (gestión de clínicas, talleres, restaurantes, inmobiliarias) cuyos clientes necesitan facturar.
+- Un **ERP o sistema de gestión** que quiere ofrecer facturación electrónica nativa sin desarrollarla.
+- Un **punto de venta (POS)** que emite comprobantes en cada transacción.
+- Un **SaaS** que quiere sumar facturación como parte de su propuesta de valor.
+
+## Próximo paso
+
+Para ofrecer Tellen como plataforma necesitas acceso de plataforma en tu cuenta. Escríbenos para habilitarlo y cuéntanos sobre tu producto.
+
+<CardGroup cols={2}>
+  <Card title="Guía rápida para plataformas" icon="code" href="/api-reference/plataforma-guia-rapida">
+    ¿Listo para integrar? La guía técnica end-to-end, con ejemplos en cURL, Node y Ruby.
+  </Card>
+  <Card title="Cuentas hijas (plataforma)" icon="network" href="/api-reference/cuentas-hijas">
+    El modelo conceptual: cómo se relacionan una plataforma y sus clientes, y cómo funciona el cobro.
+  </Card>
+</CardGroup>

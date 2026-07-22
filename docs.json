@@ -83,7 +83,8 @@
             "icon": "briefcase",
             "pages": [
               "casos-de-uso/profesional-independiente",
-              "casos-de-uso/pequenos-negocios"
+              "casos-de-uso/pequenos-negocios",
+              "casos-de-uso/plataforma"
             ]
           },
           {
@@ -105,6 +106,13 @@
             "pages": [
               "api-reference/tu-propia-cuenta",
               "api-reference/cuentas-hijas"
+            ]
+          },
+          {
+            "group": "Casos de uso",
+            "icon": "briefcase",
+            "pages": [
+              "api-reference/plataforma-guia-rapida"
             ]
           },
           {
@@ -130,5 +138,10 @@
   },
   "seo": {
     "indexing": "navigable"
+  },
+  "integrations": {
+    "intercom": {
+      "appId": "zgdenpdt"
+    }
   }
 }

@@ -1,0 +1,566 @@
+---
+title: "Guía rápida para plataformas"
+description: "Integra la API de Tellen para ofrecer facturación electrónica al SRI dentro de tu propio producto. Guía end-to-end con ejemplos en cURL, Node y Ruby para integradores en Ecuador."
+---
+
+Si desarrollas un software —un ERP, un punto de venta, un sistema de gestión— y quieres ofrecer **facturación electrónica al SRI** a tus propios clientes sin construir la integración con el SRI desde cero, Tellen funciona como tu plataforma de facturación. Tú integras una sola API y cada uno de tus clientes emite sus comprobantes desde dentro de tu producto.
+
+Esta guía técnica te lleva de principio a fin: desde crear la cuenta de un cliente hasta emitir y autorizar su primera factura, con ejemplos en cURL, Node y Ruby.
+
+<Note>
+  Para el modelo conceptual (cómo se relacionan una plataforma y sus cuentas hijas, cómo funciona el cobro), revisa [Cuentas hijas (plataforma)](/api-reference/cuentas-hijas). El detalle de cada endpoint —parámetros y respuestas— vive en la sección **Endpoints** de esta misma pestaña. ¿Buscas una visión general, sin código, de cómo Tellen ayuda a tu producto? Empieza por [Software y plataformas](/casos-de-uso/plataforma).
+</Note>
+
+## Cómo funciona el modelo plataforma
+
+- Tu **cuenta de plataforma** es tu cuenta de Tellen, habilitada por nosotros para administrar otras cuentas. Su token autentica todas tus llamadas.
+- Cada **cuenta hija** corresponde a un cliente tuyo: un negocio ecuatoriano real con su propio RUC. Tú las creas y las operas por completo desde la API.
+- El **`account_id` de la ruta** indica sobre qué cuenta actúa cada solicitud. Cuando operas un cliente, ese identificador es siempre el de la cuenta hija, no el tuyo.
+- Tellen te cobra a ti, la plataforma. Tus clientes no pagan su uso de Tellen.
+
+<Tip>
+  Solo una cuenta habilitada como plataforma puede crear y operar cuentas hijas. Si aún no tienes ese acceso, escríbenos.
+</Tip>
+
+## Antes de empezar: tu cuenta de plataforma
+
+Antes de aprovisionar a un solo cliente, necesitas tu propia cuenta de plataforma. Esta es la cuenta que Tellen factura —la de tu empresa, la que cobra a tus clientes—, así que se crea a partir de **tu** RUC, no el de ellos.
+
+<Steps>
+  <Step title="Crea tu cuenta de Tellen con tu RUC">
+    Regístrate en [dashboard.tellen.app](https://dashboard.tellen.app/users/sign_up) con el RUC de tu empresa. Como cualquier cuenta de Tellen, el perfil se completa automáticamente desde el SRI.
+  </Step>
+  <Step title="Pídenos habilitar el acceso de plataforma">
+    Escríbenos para activar el acceso de plataforma sobre tu cuenta. Sin él, tu cuenta solo se administra a sí misma y no puede crear cuentas hijas.
+  </Step>
+  <Step title="Genera tu token de API">
+    Ya con el acceso activo, crea el token desde tu consola de plataforma (ver la sección siguiente). Ese token autentica todas las llamadas de esta guía.
+  </Step>
+</Steps>
+
+<Note>
+  A partir de aquí, "tu cuenta" es esta cuenta de plataforma, y "cuentas hijas" son las de tus clientes, que creas en el paso 1 de la guía rápida. Tellen te cobra a ti por el uso de todas ellas.
+</Note>
+
+## Autenticación
+
+Todas las llamadas van a `https://dashboard.tellen.app`, bajo `/api/v1/`, con un token en el encabezado:
+
+```bash
+Authorization: Bearer tellen_tk_...
+```
+
+Creas el token desde tu consola de plataforma, en **Tokens de API** (`dashboard.tellen.app/accounts/:account_id/platform/api_tokens`).
+
+<Warning>
+  El token se muestra **una sola vez** al crearlo. Cópialo en ese momento y guárdalo en un lugar seguro: no se puede recuperar después. Da acceso completo a todas tus cuentas hijas; nunca lo compartas ni lo subas a un repositorio.
+</Warning>
+
+Un token solo puede actuar sobre su propia cuenta o sobre una cuenta hija que le pertenece. Cualquier otra cuenta responde `404` —no revelamos si existe—, así que un `404` en estos endpoints casi siempre significa que el `account_id` no es una cuenta hija tuya.
+
+## Guía rápida: de crear un cliente a su primera factura
+
+El flujo completo son siete pasos, en orden. Cada paso está en cURL, Node y Ruby. Los ejemplos de Node usan `fetch` (nativo desde Node 18) y los de Ruby usan `Net::HTTP` (librería estándar); ninguno necesita dependencias externas.
+
+Define primero tus credenciales. Reemplaza el token por el tuyo, y ve guardando los IDs que devuelve cada paso (el de la cuenta hija, el establecimiento, el contacto, el producto, la factura) para usarlos en los siguientes.
+
+<CodeGroup>
+```bash Shell
+export TOKEN="tellen_tk_..."
+export ACCOUNT_ID=""   # lo obtienes en el paso 1
+```
+
+```js Node
+const BASE = "https://dashboard.tellen.app";
+const TOKEN = "tellen_tk_...";
+
+async function tellen(method, path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = res.status === 204 ? null : await res.json();
+  if (!res.ok) throw new Error(`${res.status}: ${JSON.stringify(data)}`);
+  return data;
+}
+```
+
+```ruby Ruby
+require "net/http"
+require "json"
+require "uri"
+
+BASE = "https://dashboard.tellen.app"
+TOKEN = "tellen_tk_..."
+
+def tellen(method, path, body = nil)
+  uri = URI("#{BASE}#{path}")
+  klass = { get: Net::HTTP::Get, post: Net::HTTP::Post,
+            patch: Net::HTTP::Patch, delete: Net::HTTP::Delete }[method]
+  req = klass.new(uri)
+  req["Authorization"] = "Bearer #{TOKEN}"
+  req["Content-Type"] = "application/json"
+  req.body = body.to_json if body
+
+  res = Net::HTTP.start(uri.host, uri.port, use_ssl: true) { |http| http.request(req) }
+  data = res.body.to_s.empty? ? nil : JSON.parse(res.body)
+  raise "#{res.code}: #{data}" unless res.code.to_i < 300
+  data
+end
+```
+</CodeGroup>
+
+<Steps>
+  <Step title="Crea la cuenta hija a partir de su RUC">
+    Con el RUC obtenemos toda la información del negocio desde el SRI, así que solo necesitas enviar el RUC, los datos de contacto y el plan. Opcionalmente, `production_mode` para crearla directo en producción (por defecto arranca en pruebas).
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "account": {
+          "ruc": "1790012345001",
+          "email": "cliente@ejemplo.com",
+          "phone": "0999999999",
+          "plan": "profesional"
+        }
+      }'
+    ```
+
+    ```js Node
+    const { account } = await tellen("POST", "/api/v1/accounts", {
+      account: {
+        ruc: "1790012345001",
+        email: "cliente@ejemplo.com",
+        phone: "0999999999",
+        plan: "profesional",
+      },
+    });
+    const accountId = account.id;
+    ```
+
+    ```ruby Ruby
+    body = tellen(:post, "/api/v1/accounts", {
+      account: {
+        ruc: "1790012345001",
+        email: "cliente@ejemplo.com",
+        phone: "0999999999",
+        plan: "profesional"
+      }
+    })
+    account_id = body["account"]["id"]
+    ```
+    </CodeGroup>
+
+    El resto del perfil —razón social, dirección, régimen, obligaciones tributarias— y los **establecimientos activos** se completan automáticamente desde el SRI; no los envías ni los puedes sobrescribir. La respuesta (`201`) es el detalle completo de la cuenta, con su `id` y sus establecimientos, así que no necesitas una consulta adicional.
+
+    <Note>
+      Errores a manejar: `404` si el RUC no existe en el SRI, `409` si ya está registrado en Tellen (no puede haber dos cuentas con el mismo RUC), `422` si el RUC es inválido.
+    </Note>
+  </Step>
+
+  <Step title="Sube su certificado de firma">
+    Una cuenta hija no puede emitir al SRI sin un certificado `.p12` activo. Envíalo codificado en base64 junto con su contraseña; si la contraseña es correcta, queda como el certificado activo de la cuenta.
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/certificates \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "certificate": {
+          "p12_file": "MIINeg...base64...==",
+          "p12_password": "la-contraseña-del-p12"
+        }
+      }'
+    ```
+
+    ```js Node
+    import { readFileSync } from "node:fs";
+
+    const p12Base64 = readFileSync("./firma.p12").toString("base64");
+    await tellen("POST", `/api/v1/accounts/${accountId}/certificates`, {
+      certificate: {
+        p12_file: p12Base64,
+        p12_password: "la-contraseña-del-p12",
+      },
+    });
+    ```
+
+    ```ruby Ruby
+    require "base64"
+
+    p12_base64 = Base64.strict_encode64(File.binread("firma.p12"))
+    tellen(:post, "/api/v1/accounts/#{account_id}/certificates", {
+      certificate: {
+        p12_file: p12_base64,
+        p12_password: "la-contraseña-del-p12"
+      }
+    })
+    ```
+    </CodeGroup>
+
+    <Warning>
+      Sin un certificado activo y vigente, el envío al SRI (paso 7) falla. El orden importa: sube el certificado antes de intentar emitir.
+    </Warning>
+  </Step>
+
+  <Step title="Crea al menos un punto de emisión">
+    Los establecimientos ya existen (llegaron del SRI en el paso 1), pero los **puntos de emisión** son internos de Tellen: los creas tú, y necesitas al menos uno para poder facturar.
+
+    Primero consulta los establecimientos para tomar el `store_id`:
+
+    <CodeGroup>
+    ```bash Shell
+    curl https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/stores \
+      -H "Authorization: Bearer $TOKEN"
+    ```
+
+    ```js Node
+    const { stores } = await tellen("GET", `/api/v1/accounts/${accountId}/stores`);
+    const storeId = stores[0].id;
+    ```
+
+    ```ruby Ruby
+    stores = tellen(:get, "/api/v1/accounts/#{account_id}/stores")["stores"]
+    store_id = stores.first["id"]
+    ```
+    </CodeGroup>
+
+    Luego crea el punto de emisión sobre ese establecimiento. El `code` (3 dígitos) debe ser el mismo que el cliente ya usaba en ese punto de venta, y el secuencial debe **continuar la numeración que traía**, no reiniciar en 1.
+
+    <Warning>
+      Si el cliente ya venía facturando —en otro sistema o en el portal del SRI—, el SRI rechaza cualquier factura cuyo secuencial repita uno ya autorizado. Arranca el punto de emisión desde el **siguiente** secuencial disponible con `next_sequential_production` (y `next_sequential_test` para el ambiente de pruebas). Por ejemplo, si la última factura autorizada fue la `001-001-000001244`, el próximo secuencial es `1245`. Si el cliente es nuevo y nunca ha facturado desde ese punto, omite estos campos: arrancan en `1`.
+    </Warning>
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/emission_points \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "emission_point": {
+          "store_id": "STORE_UUID",
+          "code": "001",
+          "description": "Caja principal",
+          "next_sequential_production": 1245
+        }
+      }'
+    ```
+
+    ```js Node
+    const { emission_point } = await tellen(
+      "POST",
+      `/api/v1/accounts/${accountId}/emission_points`,
+      {
+        emission_point: {
+          store_id: storeId,
+          code: "001",
+          description: "Caja principal",
+          next_sequential_production: 1245, // continúa desde el último que emitió el cliente
+        },
+      }
+    );
+    const emissionPointId = emission_point.id;
+    ```
+
+    ```ruby Ruby
+    emission_point = tellen(:post, "/api/v1/accounts/#{account_id}/emission_points", {
+      emission_point: {
+        store_id: store_id,
+        code: "001",
+        description: "Caja principal",
+        next_sequential_production: 1245 # continúa desde el último que emitió el cliente
+      }
+    })["emission_point"]
+    emission_point_id = emission_point["id"]
+    ```
+    </CodeGroup>
+
+    <Tip>
+      Si los establecimientos del SRI cambiaron después de crear la cuenta, vuelve a sincronizarlos con `POST /api/v1/accounts/$ACCOUNT_ID/stores/sync`.
+    </Tip>
+  </Step>
+
+  <Step title="Registra los contactos del cliente">
+    Son los clientes y proveedores de tu cliente: a quiénes les factura. Marca al menos uno de `cliente` o `proveedor`.
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/contacts \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "contact": {
+          "razon_social": "Consumidor Final",
+          "tipo_identificacion": "07",
+          "identificacion": "9999999999999",
+          "cliente": true
+        }
+      }'
+    ```
+
+    ```js Node
+    const { contact } = await tellen("POST", `/api/v1/accounts/${accountId}/contacts`, {
+      contact: {
+        razon_social: "Consumidor Final",
+        tipo_identificacion: "07",
+        identificacion: "9999999999999",
+        cliente: true,
+      },
+    });
+    const contactId = contact.id;
+    ```
+
+    ```ruby Ruby
+    contact = tellen(:post, "/api/v1/accounts/#{account_id}/contacts", {
+      contact: {
+        razon_social: "Consumidor Final",
+        tipo_identificacion: "07",
+        identificacion: "9999999999999",
+        cliente: true
+      }
+    })["contact"]
+    contact_id = contact["id"]
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Registra su catálogo de productos">
+    Los ítems de cada factura referencian productos por su ID. Cada producto lleva su configuración de impuestos (IVA e ICE), así que no calculas impuestos a mano en la factura.
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/products \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "product": {
+          "name": "Consulta profesional",
+          "code": "SERV-001",
+          "product_type": "servicio",
+          "iva": "15",
+          "price_before_tax": 50.00
+        }
+      }'
+    ```
+
+    ```js Node
+    const { product } = await tellen("POST", `/api/v1/accounts/${accountId}/products`, {
+      product: {
+        name: "Consulta profesional",
+        code: "SERV-001",
+        product_type: "servicio",
+        iva: "15",
+        price_before_tax: 50.0,
+      },
+    });
+    const productId = product.id;
+    ```
+
+    ```ruby Ruby
+    product = tellen(:post, "/api/v1/accounts/#{account_id}/products", {
+      product: {
+        name: "Consulta profesional",
+        code: "SERV-001",
+        product_type: "servicio",
+        iva: "15",
+        price_before_tax: 50.0
+      }
+    })["product"]
+    product_id = product["id"]
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Crea la factura en borrador">
+    Envía el `contact_id`, el `emission_point_id` y los `items` (cada uno con `product_id` o `product_variant_id` y su cantidad). Los impuestos se derivan automáticamente de los productos referenciados: tú envías IDs y cantidades, no montos de impuestos.
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/invoices \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "invoice": {
+          "contact_id": "CONTACT_UUID",
+          "emission_point_id": "EMISSION_POINT_UUID",
+          "payment_method": "20",
+          "items": [
+            { "product_id": "PRODUCT_UUID", "quantity": 1 }
+          ]
+        }
+      }'
+    ```
+
+    ```js Node
+    const { invoice } = await tellen("POST", `/api/v1/accounts/${accountId}/invoices`, {
+      invoice: {
+        contact_id: contactId,
+        emission_point_id: emissionPointId,
+        payment_method: "20",
+        items: [{ product_id: productId, quantity: 1 }],
+      },
+    });
+    const invoiceId = invoice.id;
+    ```
+
+    ```ruby Ruby
+    invoice = tellen(:post, "/api/v1/accounts/#{account_id}/invoices", {
+      invoice: {
+        contact_id: contact_id,
+        emission_point_id: emission_point_id,
+        payment_method: "20",
+        items: [{ product_id: product_id, quantity: 1 }]
+      }
+    })["invoice"]
+    invoice_id = invoice["id"]
+    ```
+    </CodeGroup>
+
+    La factura nace en estado `draft`: guardada en la cuenta, pero todavía sin efecto tributario. `payment_method` es un código SRI de forma de pago (por defecto `20`).
+  </Step>
+
+  <Step title="Envíala al SRI y consulta el resultado">
+    El envío es **asíncrono**. La respuesta es `202 Accepted` con `{ "id": "...", "status": "pending" }`: la factura quedó encolada, **todavía no autorizada**.
+
+    <CodeGroup>
+    ```bash Shell
+    curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/invoices/INVOICE_UUID/submit \
+      -H "Authorization: Bearer $TOKEN"
+    ```
+
+    ```js Node
+    await tellen("POST", `/api/v1/accounts/${accountId}/invoices/${invoiceId}/submit`);
+    ```
+
+    ```ruby Ruby
+    tellen(:post, "/api/v1/accounts/#{account_id}/invoices/#{invoice_id}/submit")
+    ```
+    </CodeGroup>
+
+    Consulta la factura hasta que su `status` deje de ser `pending`:
+
+    <CodeGroup>
+    ```bash Shell
+    curl https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/invoices/INVOICE_UUID \
+      -H "Authorization: Bearer $TOKEN"
+    ```
+
+    ```js Node
+    async function esperarResultado(accountId, invoiceId) {
+      while (true) {
+        const { invoice } = await tellen(
+          "GET",
+          `/api/v1/accounts/${accountId}/invoices/${invoiceId}`
+        );
+        if (invoice.status !== "pending") return invoice;
+        await new Promise((r) => setTimeout(r, 3000)); // espera 3 s y reintenta
+      }
+    }
+
+    const resultado = await esperarResultado(accountId, invoiceId);
+    if (resultado.status === "authorized") {
+      console.log("Autorizada:", resultado.access_key, resultado.authorization_number);
+    } else {
+      console.error("Rechazada:", resultado.error_message);
+    }
+    ```
+
+    ```ruby Ruby
+    def esperar_resultado(account_id, invoice_id)
+      loop do
+        invoice = tellen(:get, "/api/v1/accounts/#{account_id}/invoices/#{invoice_id}")["invoice"]
+        return invoice unless invoice["status"] == "pending"
+        sleep 3 # espera 3 s y reintenta
+      end
+    end
+
+    resultado = esperar_resultado(account_id, invoice_id)
+    if resultado["status"] == "authorized"
+      puts "Autorizada: #{resultado["access_key"]} #{resultado["authorization_number"]}"
+    else
+      warn "Rechazada: #{resultado["error_message"]}"
+    end
+    ```
+    </CodeGroup>
+
+    - `authorized` → autorizada, con `access_key` y `authorization_number`.
+    - `rejected` → rechazada, con el motivo en `error_message`.
+
+    <Warning>
+      La respuesta del envío **no** es el resultado final. No la trates como autorización: consulta la factura hasta ver `authorized` o `rejected`.
+    </Warning>
+  </Step>
+</Steps>
+
+## Anular una factura autorizada
+
+Para dejar sin efecto una factura ya autorizada, anúlala. Solo es posible hasta el día 7 del mes siguiente a la emisión, y recuerda anular también el comprobante en el portal del SRI.
+
+<CodeGroup>
+```bash Shell
+curl -X POST https://dashboard.tellen.app/api/v1/accounts/$ACCOUNT_ID/invoices/INVOICE_UUID/void \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```js Node
+const resultado = await tellen(
+  "POST",
+  `/api/v1/accounts/${accountId}/invoices/${invoiceId}/void`
+);
+console.log(resultado.status); // "cancelled"
+```
+
+```ruby Ruby
+resultado = tellen(:post, "/api/v1/accounts/#{account_id}/invoices/#{invoice_id}/void")
+puts resultado["status"] # "cancelled"
+```
+</CodeGroup>
+
+Devuelve `{ "id": "...", "status": "cancelled" }`.
+
+## Pruebas y producción
+
+Cada cuenta hija trabaja en el ambiente de **pruebas** o de **producción** del SRI, según su `production_mode`. Los comprobantes que emites en pruebas **no tienen validez legal**: úsalo para validar tu integración antes de emitir en producción.
+
+- Al crear la cuenta hija, si omites `production_mode` arranca en pruebas.
+- Las consultas y los secuenciales están separados por ambiente.
+- Puedes pasar una cuenta a producción al editarla, con `PATCH /api/v1/accounts/:id`.
+
+## Manejo de errores
+
+| Código | Significado | Qué revisar |
+|---|---|---|
+| `401` | Falta el token, o es inválido o está inactivo | El encabezado `Authorization` |
+| `403` | La cuenta no tiene el acceso a la API habilitado | Que tu cuenta esté habilitada como plataforma |
+| `404` | La cuenta no existe o no la administras | Que el `account_id` sea una cuenta hija tuya |
+| `409` | El RUC ya está registrado en Tellen | Al crear una cuenta hija duplicada |
+| `422` | Los datos enviados no son válidos | El cuerpo de la solicitud; llega la lista en `errors` |
+
+Recuerda además el patrón asíncrono del envío al SRI: un `202` significa "encolada", no "autorizada". El estado final lo obtienes consultando la factura.
+
+## Paginación y filtros
+
+Los listados devuelven el recurso más un objeto `pagination` (`page`, `total_pages`, `total_count`) y aceptan `?page=` (25 por página). Algunos aceptan filtros:
+
+- **Facturas**: `status`, `contact_id`, `emission_date_from`, `emission_date_to`.
+- **Contactos**: `query`, `contact_type`.
+- **Puntos de emisión**: `store_id`.
+
+## Siguiente paso
+
+<CardGroup cols={2}>
+  <Card title="Cuentas hijas (plataforma)" icon="network" href="/api-reference/cuentas-hijas">
+    El modelo conceptual: cómo se relacionan una plataforma y sus hijas, y cómo funciona el cobro.
+  </Card>
+  <Card title="Referencia de endpoints" icon="code" href="/api-reference/tu-propia-cuenta">
+    El detalle de cada endpoint, con sus parámetros y respuestas exactas.
+  </Card>
+</CardGroup>
