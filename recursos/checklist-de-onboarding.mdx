@@ -7,16 +7,17 @@ Antes de emitir tu primera factura en producción, vale la pena tomarte unos min
 
 <Steps>
   <Step title="Confirmar responsables del proceso">
-    Define quién administra la cuenta de Tellen (configuración, usuarios, certificado) y quién se encarga de la facturación diaria. Tener roles claros desde el inicio evita confusiones y accesos no deseados.
+    Define quién administra la cuenta de Tellen (configuración, usuarios, certificado) y quiénes se encargan de las ventas u operativa diaria. Tener roles claros desde el inicio evita confusiones y accesos no deseados:
 
-    - **Administrador:** gestiona la configuración general, el certificado digital y los usuarios.
-    - **Facturador:** crea y emite comprobantes desde los puntos de emisión asignados.
+    - **Propietario:** Administra la cuenta completa, planes de suscripción, certificado digital e impuestos.
+    - **Administrador:** Gestiona la configuración general del negocio, usuarios y operativa diaria.
+    - **Vendedor:** Crea cotizaciones, órdenes y emite facturas a clientes.
+    - **Contador:** Revisa reportes tributarios (IVA, ventas), retenciones y documentos recibidos.
 
     <Note>
-      En el plan Básico puedes tener 1 usuario; en el plan Profesional, hasta 3. Planifica los accesos antes de invitar a tu equipo.
+      En el plan Básico dispones de 1 usuario; en el plan Profesional, hasta 3 usuarios. Planifica los accesos antes de enviar invitaciones a tu equipo.
     </Note>
   </Step>
-
   <Step title="Validar la información del negocio">
     Revisa que los datos tributarios de tu empresa estén correctos en Tellen antes de emitir cualquier comprobante. Un error en el RUC o en la razón social puede causar rechazos del SRI.
 
@@ -28,31 +29,37 @@ Antes de emitir tu primera factura en producción, vale la pena tomarte unos min
     - **Dirección:** dirección del establecimiento principal.
     - **Obligado a llevar contabilidad:** marca el valor correcto según tu situación.
   </Step>
-
   <Step title="Subir el certificado digital .p12">
     El certificado digital PKCS#12 (archivo `.p12`) es indispensable para firmar electrónicamente todos tus comprobantes ante el SRI. Sin él, Tellen no puede enviar documentos.
 
-    1. Ve a **Configuración → Certificado digital**.
+    1. Ve a a tu perfil **(Clara Nortez) → Configuración → Certificado digital.**
     2. Sube tu archivo `.p12` y escribe la contraseña asociada.
     3. Verifica la fecha de vencimiento del certificado.
+
+    <Frame>
+      ![Screenshot 2026 08 05 At 5 53 01 PM](/images/Screenshot-2026-08-05-at-5.53.01-PM.png "Screenshot 2026 08 05 At 5 53 01 PM")
+    </Frame>
 
     <Warning>
       Si tu certificado está vencido o próximo a vencer, renuévalo con el **Banco Central del Ecuador** o **Security Data** antes de continuar. Tellen no puede firmar documentos con un certificado expirado.
     </Warning>
   </Step>
-
   <Step title="Configurar establecimientos y puntos de emisión">
-    El SRI requiere que cada comprobante identifique el establecimiento y el punto de emisión desde el que se emite. Configúralos correctamente para que la numeración sea válida.
+    El SRI requiere que cada comprobante identifique el establecimiento desde el que se emite. Configúralos correctamente para que la información tributaria sea válida:
 
-    1. En **Configuración → Establecimientos**, agrega cada local o sucursal con su código de 3 dígitos (por ejemplo, `001`).
-    2. Dentro de cada establecimiento, crea los **puntos de emisión** necesarios (por ejemplo, `001`, `002`).
-    3. Asegúrate de que los códigos coincidan con lo registrado ante el SRI.
+    - Ve a tu perfil **(Clara Nortez) → Ajustes  → Establecimientos.**
+    - Haz clic en el botón verde **Nuevo establecimiento**.
+    - Ingresa el **Número de establecimiento** (código de 3 dígitos registrado en el RUC, por ejemplo `001`, `002`), el **Nombre** del local o sucursal, la **Dirección**, el **Teléfono** y opcionalmente el **Correo electrónico**.
+    - Haz clic en **Crear establecimiento** para guardar los cambios.
+
+    <Frame>
+      ![Screenshot 2026 08 05 At 5 50 59 PM](/images/Screenshot-2026-08-05-at-5.50.59-PM.png "Screenshot 2026 08 05 At 5 50 59 PM")
+    </Frame>
 
     <Note>
       Todos los planes incluyen establecimientos y puntos de emisión ilimitados. No hay restricciones en este aspecto.
     </Note>
   </Step>
-
   <Step title="Validar la estructura inicial de clientes">
     Un directorio de clientes bien organizado desde el inicio evita duplicados y facilita la búsqueda al momento de facturar.
 
@@ -61,7 +68,6 @@ Antes de emitir tu primera factura en producción, vale la pena tomarte unos min
     - Verifica que el número de identificación (RUC, cédula o pasaporte) sea correcto antes de guardar.
     - Si vas a importar un listado existente, limpia los datos en Excel o CSV primero.
   </Step>
-
   <Step title="Cargar el catálogo de productos con precios e impuestos">
     El catálogo de productos agiliza la emisión de comprobantes y garantiza que los impuestos se calculen correctamente en cada línea.
 
@@ -73,32 +79,33 @@ Antes de emitir tu primera factura en producción, vale la pena tomarte unos min
       Si ya tienes un catálogo en una hoja de cálculo, prepara la importación desde el inicio para ahorrar tiempo de carga manual.
     </Tip>
   </Step>
-
   <Step title="Probar el flujo con un registro interno de prueba">
-    Antes de emitir comprobantes reales, realiza al menos una prueba completa para verificar que todo el flujo funciona correctamente.
+    Antes de emitir comprobantes reales, puedes verificar el comportamiento del sistema ajustando el entorno de emisión:
 
-    1. Crea un cliente de prueba con tus propios datos o los de tu empresa.
-    2. Emite una factura de prueba con un producto de tu catálogo.
-    3. Verifica que el comprobante se autorice correctamente y que el XML sea válido.
-    4. Descarga el RIDE y revisa que todos los datos aparezcan bien impresos.
+    - En tu perfil (**Clara Nortez**) → **Ajustes** → **General**  → **Ambiente**, verás el checkbox **Modo producción**.
+    - Por defecto, Tellen mantiene activo el modo producción. Si deseas hacer pruebas previas, desmarca la casilla **Modo producción** para conmutar al ambiente de pruebas del SRI y haz clic en **Guardar cambios**.
+    - Emite una factura de prueba, verifica su autorización y descarga el RIDE/XML.
+    - Una vez completada la comprobación, vuelve a marcar la casilla **Modo producción** antes de facturar a clientes reales.
+
+    <Frame>
+      ![Screenshot 2026 08 05 At 5 52 25 PM](/images/Screenshot-2026-08-05-at-5.52.25-PM.png "Screenshot 2026 08 05 At 5 52 25 PM")
+    </Frame>
 
     <Tip>
       Usa el **ambiente de pruebas del SRI** para tus primeras emisiones. Así puedes verificar que la configuración es correcta sin generar comprobantes válidos en producción. Actívalo en **Configuración → Ambiente → Pruebas**.
     </Tip>
   </Step>
-
   <Step title="Invitar al equipo y asignar roles y puntos de emisión">
-    Si tienes más de un usuario, invita a tu equipo una vez que la configuración base esté lista.
+    Si trabajas con un equipo, invita a los colaboradores una vez que la configuración inicial esté lista:
 
-    1. Ve a **Configuración → Usuarios** e invita a cada miembro por correo electrónico.
-    2. Asigna el rol correspondiente: **Administrador** o **Facturador**.
-    3. Restringe cada usuario a los puntos de emisión que le corresponden según su función o sucursal.
+    - Haz clic en tu **Perfil (Clara Notez)→ Ajustes** → **Usuarios** e invita a cada miembro ingresando su nombre, apellido y correo electrónico.
+    - Asigna a cada usuario el rol correspondiente a sus funciones: **Propietario**, **Administrador**, **Vendedor** o **Contador**.
+    - Las invitaciones llegarán por correo electrónico para que los colaboradores configuren sus accesos.
 
     <Note>
-      El plan Profesional permite hasta 3 usuarios. Si necesitas más accesos simultáneos, considera el plan Empresarial (próximamente disponible).
+      El plan Profesional permite hasta 3 usuarios incluidos. Si necesitas más accesos simultáneos, considera las opciones disponibles para actualizar tu plan.
     </Note>
   </Step>
-
   <Step title="Alinear criterios de uso con el equipo">
     Antes de salir a producción, asegúrate de que todos los usuarios que facturarán en Tellen conozcan los criterios internos de uso:
 
@@ -109,7 +116,6 @@ Antes de emitir tu primera factura en producción, vale la pena tomarte unos min
 
     Documentar estas decisiones — aunque sea brevemente — evita inconsistencias en la base de datos.
   </Step>
-
   <Step title="Definir una fecha de revisión posterior al lanzamiento">
     Programa una revisión del proceso entre 2 y 4 semanas después de comenzar a facturar en producción. Úsala para:
 

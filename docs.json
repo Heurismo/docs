@@ -45,7 +45,8 @@
                   "ordenes-de-venta",
                   "producto/emite-comprobantes",
                   "como-anular-una-factura"
-                ]
+                ],
+                "icon": "dollar-sign"
               },
               {
                 "group": "Contactos",
@@ -59,13 +60,17 @@
                 "pages": [
                   "productos",
                   "como-gestionar-y-consultar-el-detalle-de-un-producto-o-servicio"
-                ]
+                ],
+                "icon": "box"
               },
               {
                 "group": "Documentos Emitidos ",
                 "pages": [
+                  "como-emitir-un-comprobante-de-retencion",
                   "notas-de-credito-y-debito",
-                  "como-emitir-una-liquidacion-de-compra"
+                  "como-emitir-una-liquidacion-de-compra",
+                  "untitled-page",
+                  "como-gestionar-transportistas"
                 ]
               },
               {
@@ -73,9 +78,35 @@
                 "pages": [
                   "sincronizacion-sri-plan-profesional",
                   "importacion-en-lote-plan-basico"
+                ],
+                "icon": "file"
+              },
+              {
+                "group": "Reportes",
+                "pages": [
+                  "localiza-el-producto-o-servicio-en-tu-listado-acceso-en-el-menu-lateral-izquierdo-haz-clic-en-productos",
+                  "cuentas-por-cobrar",
+                  "producto/c",
+                  "reportes-iva"
                 ]
               },
-              "producto/establecimientos-y-puntos-de-emision"
+              "producto/establecimientos-y-puntos-de-emision",
+              {
+                "group": "Configuración",
+                "pages": [
+                  "establecimiento",
+                  "general",
+                  "apariencia",
+                  "usuarios-e-invitaciones",
+                  "certificado-como-subir-tu-firma-electronica-p12"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Tellen AI",
+            "pages": [
+              "te"
             ]
           },
           {

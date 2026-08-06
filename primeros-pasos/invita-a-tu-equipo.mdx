@@ -7,35 +7,46 @@ Tellen permite que varias personas trabajen en la misma cuenta, cada una con acc
 
 ## A quién invitar primero
 
-Invita primero a las personas que participan **directamente en el seguimiento operativo**: quienes emiten facturas, quienes verifican pagos o quienes atienden a clientes de forma regular. Evita invitar usuarios que no tienen un rol definido durante la configuración inicial; agregarlos sin un propósito claro genera confusión y dificulta auditar quién hizo qué.
+Invita primero a las personas que participan **directamente en el seguimiento operativo**: quienes emiten facturas, quienes verifican pagos o quienes atienden a clientes de forma regular. Evita invitar a usuarios que no tienen un rol definido durante la configuración inicial; agregarlos sin un propósito claro genera confusión y dificulta auditar quién hizo qué.
 
 <Note>
   El número de usuarios disponibles depende de tu plan. El plan **Básico** incluye 1 usuario; el plan **Profesional** permite hasta **3 usuarios**. Si necesitas más colaboradores, considera cambiar al plan Profesional desde **Configuración → Plan**.
 </Note>
 
+## Tipos de roles disponibles
+
+Al agregar un usuario debes asignarle un rol específico en el menú desplegable. Cada rol define el nivel de responsabilidad y acceso dentro de la plataforma:
+
+| **Rol** | **Descripción** |
+| :-- | :-- |
+| **Propietario** | Acceso total a la plataforma, gestión de suscripción, configuración de impuestos, facturación y administración de usuarios. |
+| **Administrador** | Gestión operativa completa de la cuenta, emisión de comprobantes, reportes y configuración general del negocio. |
+| **Vendedor** | Enfoque comercial para la creación y gestión de cotizaciones, órdenes de venta y emisión de facturas a clientes. |
+| **Contador** | Acceso orientado a la consulta de reportes (IVA, ventas, cuentas por cobrar), retenciones y descarga de comprobantes recibidos. |
+
 ## Pasos para enviar una invitación
 
 <Steps>
-  <Step title="Abre la sección de usuarios">
-    Desde el panel principal, ve a **Configuración → Usuarios y permisos**. Ahí verás la lista de personas que ya tienen acceso a tu cuenta.
+  <Step title="Paso 1: Abre la sección de usuarios">
+    En la esquina inferior izquierda del panel, haz clic sobre tu perfil (**Clara Nortez**) → **Ajustes** y selecciona la pestaña **Usuarios** dentro del bloque _Cuenta_. Ahí verás el listado de usuarios con su estado (_Activo_) y rol asignado.
   </Step>
+  <Step title="Paso 2: Completa los datos del colaborador">
+    Haz clic en el botón **Invitar usuario** ubicado en la parte superior. En la ventana emergente (_Enviar invitación_), ingresa los siguientes datos obligatorios:
 
-  <Step title="Ingresa el correo del colaborador">
-    Haz clic en **Invitar usuario** e ingresa la dirección de correo electrónico de la persona que deseas agregar.
-
-    Verifica que el correo sea correcto antes de enviar. La invitación llega directamente a esa dirección.
+    - **Nombre:** Nombre del colaborador.
+    - **Apellido:** Apellido del colaborador.
+    - **Correo electrónico:** Dirección donde recibirá la invitación.
+    - **Rol:** Selecciona en el menú desplegable entre _Propietario_, _Administrador_, _Vendedor_ o _Contador_.
   </Step>
-
-  <Step title="Confirma y envía la invitación">
-    Revisa los datos y confirma. El colaborador recibirá un correo con un enlace para crear su contraseña y acceder a la cuenta.
+  <Step title="Paso 3: Confirma y envía la invitación">
+    Revisa que la información y el rol sean correctos. El colaborador recibirá un correo electrónico con las instrucciones para acceder a la cuenta.
 
     <Note>
       Si el colaborador no encuentra el correo en su bandeja de entrada, pídele que revise la carpeta de spam o correo no deseado.
     </Note>
   </Step>
-
-  <Step title="Verifica que el acceso esté activo">
-    Una vez que el colaborador acepta la invitación, su estado cambia a **activo** en la lista de usuarios. Desde ese momento puede operar en el panel con los permisos asignados.
+  <Step title="Paso 4: Verifica que el acceso esté activo">
+    Una vez que el colaborador acepta la invitación, su estado cambiará a **Activo** en la lista de _Usuarios e invitaciones_. Desde esta misma pantalla podrás hacer clic en **Editar** para cambiar su rol o **Eliminar** para remover su acceso si es necesario.
   </Step>
 </Steps>
 
@@ -70,7 +81,7 @@ Seguir estas prácticas desde el inicio evita problemas operativos cuando el equ
 ## Límites de usuarios por plan
 
 | Plan | Usuarios incluidos |
-|---|---|
+| --- | --- |
 | Básico | 1 usuario |
 | Profesional | Hasta 3 usuarios |
 | Empresarial | Próximamente |
@@ -85,6 +96,7 @@ Con tu equipo configurado, el proceso está listo para operar. El siguiente paso
   <Card title="Emite comprobantes" icon="send" href="/producto/emite-comprobantes">
     Aprende a crear facturas, notas de crédito, débito y retenciones paso a paso.
   </Card>
+
   <Card title="Checklist de onboarding" icon="list-checks" href="/recursos/checklist-de-onboarding">
     Comparte este checklist con cada colaborador nuevo para estandarizar su primer acceso.
   </Card>
