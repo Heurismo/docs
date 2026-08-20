@@ -1,0 +1,89 @@
+---
+title: "Gestión de Productos e Inventario"
+---
+
+El control de inventario en Tellen te permite mantener la trazabilidad física y financiera de cada bien que comercializas: desde el ingreso de compras y el control de variantes hasta el descuento automático por facturación y el ajuste de mermas por conteo físico.
+
+<Steps>
+  <Step title="Paso 1: Activar el control de inventario en un producto">
+    - Ve a **Productos** en el menú lateral y haz clic en **Nuevo producto** (o presiona **Editar** en uno existente).
+    - Asegúrate de clasificarlo como un **Bien**.
+
+    <Frame>
+      ![Screenshot 2026 08 18 At 12 40 51 PM](/images/Screenshot-2026-08-18-at-12.40.51-PM.png "Screenshot 2026 08 18 At 12 40 51 PM")
+    </Frame>
+
+    - En la sección **Inventario**, marca la casilla **Controlar inventario**.
+    - Ingresa el **Stock inicial** (cantidad física con la que arrancas el registro) y define el **Umbral de stock bajo** (nivel mínimo de existencias que activará alertas visuales en tu cuenta).
+    - Haz clic en **Guardar** o **Actualizar producto**.
+
+    <Frame>
+      ![Screenshot 2026 08 18 At 12 41 16 PM](/images/Screenshot-2026-08-18-at-12.41.16-PM.png "Screenshot 2026 08 18 At 12 41 16 PM")
+    </Frame>
+  </Step>
+  <Step title="Paso 2: Cómo registrar entradas de mercadería (Añadir Stock)">
+    Cuando recibes reposición de mercadería, compras a proveedores o lotes de producción, no necesitas editar el producto base; se ingresa un movimiento de entrada:
+
+    - En el menú **Productos**, haz clic sobre el ítem al que deseas sumar unidades.
+    - Dirígete a la pestaña **Inventario** en la barra superior.
+
+    <Frame>
+      ![Screenshot 2026 08 18 At 12 43 24 PM](/images/Screenshot-2026-08-18-at-12.43.24-PM.png "Screenshot 2026 08 18 At 12 43 24 PM")
+    </Frame>
+
+    - Haz clic en el botón **\+ Añadir stock** ubicado en la esquina superior derecha.
+    - En la ventana emergente, completa:
+      - **Cantidad:** Número de unidades que ingresan al almacén.
+      - **Costo unitario (opcional):** Precio de compra o costo de fabricación por unidad para actualizar la valoración de tus existencias.
+      - **Notas (opcional):** Proveedor de origen, número de factura de compra o referencia del lote.
+    - Haz clic en **Añadir stock**. El sistema sumará de inmediato las unidades al **Saldo** acumulado y creará el registro con signo positivo (\$\+\$).
+
+    <Frame>
+      ![Screenshot 2026 08 18 At 12 43 44 PM](/images/Screenshot-2026-08-18-at-12.43.44-PM.png "Screenshot 2026 08 18 At 12 43 44 PM")
+    </Frame>
+  </Step>
+  <Step title="Paso 3: Cómo corregir diferencias de inventario (Reconciliación)">
+    Si tras un conteo físico detectas faltantes (por roturas, mermas, pérdidas) o sobrantes respecto a lo que marca el sistema:
+
+    1. Dentro de la pestaña **Inventario** del producto, haz clic en el botón **Reconciliar**.
+    2. En la ventana emergente verás el _Stock actual registrado_:
+       - **Conteo físico:** Digita la cantidad real y física exacta que tienes en bodega.
+       - **Nota (obligatoria):** Especifica el motivo del ajuste (ej. _"Conteo mensual de bodega"_, _"Merma por rotura en transporte"_, etc.).
+    3. Haz clic en **Reconciliar**. Tellen recalculará el stock y registrará el ajuste con la justificación auditada.
+
+    <Frame>
+      ![Screenshot 2026 08 19 At 12 12 29 PM](/images/Screenshot-2026-08-19-at-12.12.29-PM.png "Screenshot 2026 08 19 At 12 12 29 PM")
+    </Frame>
+  </Step>
+  <Step title="Paso 4: Crear y controlar Variantes (Talla, Color, Dimensiones)">
+    Si vendes un mismo artículo en diferentes presentaciones con control de stock independiente:
+
+    1. En la vista del producto, haz clic en la pestaña **Variantes**.
+    2. Presiona el botón **\+ Agregar variante**.
+    3. Completa los detalles de la variante:
+       - **Nombre de la variante:** Identificador específico (ej. _Rojo / M_, _15mm x 2m_, _Prensado fino_).
+       - **Imágenes de la variante (opcional):** Sube hasta 8 fotos específicas si difiere del producto principal.
+       - **Código de la variante:** SKU particular (si se deja vacío, hereda el código base).
+       - **Precio antes de impuestos:** Si tiene un precio distinto al producto base.
+       - **Stock y Umbral de stock bajo:** Cantidad física inicial y alerta mínima de esta variante específica.
+    4. Presiona **Crear variante**.
+
+    <Frame>
+      ![Screenshot 2026 08 19 At 12 46 28 PM](/images/Screenshot-2026-08-19-at-12.46.28-PM.png "Screenshot 2026 08 19 At 12 46 28 PM")
+    </Frame>
+  </Step>
+  <Step title="Paso 5: Consultar métricas, historial y documentos vinculados">
+    La ficha de cada producto te ofrece visibilidad total sobre su rendimiento comercial:
+
+    - **Pestaña Resumen:** Muestra los ingresos brutos generados, unidades totales vendidas, cantidad de facturas emitidas y cotizaciones en curso.
+    - **Pestaña Documentos:** Lista cada una de las facturas autorizadas y cotizaciones formales donde se ha incluido este producto.
+    - **Pestaña Imágenes:** Permite cargar y ordenar la galería comercial del producto (formato PNG, JPG o WebP, hasta 8 imágenes) para catálogo y tienda.
+  </Step>
+</Steps>
+
+<Info>
+  **¿Cómo se descuenta el stock automáticamente?**
+
+  - **Facturación en tiempo real:** Cada vez que emites una **Factura** autorizada ante el SRI, el sistema descuenta automáticamente las unidades facturadas del inventario (registradas en el Kárdex en rojo con signo \$-\$).
+  - **Trazabilidad sin errores:** El stock nunca se edita manualmente "por encima"; cada cambio queda respaldado cronológicamente por su fecha, motivo y documento de respaldo.
+</Info>
