@@ -1,0 +1,113 @@
+---
+title: "Conecta Tellen con Claude"
+sidebarTitle: "Claude"
+description: "Conecta tu cuenta de Tellen a Claude para consultar, crear y enviar facturas electrónicas al SRI conversando, sin salir del chat."
+---
+
+Con el conector de Tellen, Claude puede trabajar directamente con tu cuenta: buscar facturas, revisar contactos y productos, armar una factura nueva y enviarla al SRI. Tú le pides lo que necesitas en lenguaje natural y Claude usa tus datos de Tellen para resolverlo.
+
+El conector funciona en Claude en la web, en la app de escritorio y en el móvil.
+
+## Antes de empezar
+
+Necesitas:
+
+- Una cuenta de Tellen con acceso a la cuenta (negocio) en la que vas a trabajar.
+- Una cuenta de Claude.
+- Para **enviar facturas al SRI**, un [certificado de firma (.p12)](/certificado-como-subir-tu-firma-electronica-p12) cargado y vigente, y tus [establecimientos y puntos de emisión](/producto/establecimientos-y-puntos-de-emision) configurados.
+
+## Conecta tu cuenta
+
+<Steps>
+  <Step title="Agrega el conector en Claude">
+    En Claude, abre **Configuración** → **Conectores**.
+
+    <Tabs>
+      <Tab title="Desde el directorio">
+        Busca **Tellen** en el directorio de conectores y haz clic en **Conectar**.
+      </Tab>
+      <Tab title="Con la URL del servidor">
+        Haz clic en **Agregar conector personalizado** e ingresa:
+
+        - **Nombre:** `Tellen`
+        - **URL:** `https://dashboard.tellen.app/mcp`
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Inicia sesión en Tellen">
+    Claude abre la pantalla de inicio de sesión de Tellen. Ingresa con tu correo y contraseña, o con Google o Apple, como lo haces siempre.
+  </Step>
+  <Step title="Autoriza el acceso">
+    Tellen te muestra qué aplicación pide acceso. Revisa que sea Claude y haz clic en **Autorizar**.
+
+    Al terminar, vuelves a Claude con el conector activo.
+  </Step>
+</Steps>
+
+<Note>
+  Claude trabaja con tus mismos permisos. Si tu rol en una cuenta no te deja, por ejemplo, anular facturas, Claude tampoco podrá hacerlo.
+</Note>
+
+## Qué puede hacer Claude
+
+| Acción | Herramienta | ¿Modifica datos? |
+|---|---|---|
+| Ver tus cuentas y cuál está activa | `list_accounts` | No |
+| Cambiar la cuenta activa | `switch_account` | Solo tu preferencia |
+| Listar y filtrar facturas por estado, cliente o fecha | `list_invoices` | No |
+| Ver el detalle de una factura | `get_invoice` | No |
+| Listar clientes y proveedores | `list_contacts` | No |
+| Listar productos con precios e impuestos | `list_products` | No |
+| Listar establecimientos y puntos de emisión | `list_emission_points` | No |
+| Crear una factura en borrador | `create_invoice` | Sí |
+| Editar una factura en borrador o rechazada | `update_invoice` | Sí |
+| Eliminar una factura en borrador | `delete_invoice` | Sí |
+| Enviar una factura al SRI | `submit_invoice_to_sri` | Sí |
+| Anular una factura autorizada | `void_invoice` | Sí |
+
+Por ahora el conector trabaja solo con **facturas**. Notas de crédito y débito, retenciones y liquidaciones de compra se gestionan desde Tellen.
+
+Cada herramienta le indica a Claude si solo lee datos o si los modifica, para que te pida confirmación según tus permisos en Claude. Revisa bien antes de aprobar el envío de una factura al SRI: una factura autorizada tiene validez tributaria.
+
+## Ejemplos
+
+Puedes pedirle cosas como:
+
+- *"¿Cuántas facturas autorizadas emití este mes y por qué monto?"*
+- *"Muéstrame las facturas rechazadas por el SRI y el motivo de cada una."*
+- *"Crea una factura para Comercial Andina con 3 horas de consultoría y 1 licencia anual, pago con transferencia."*
+- *"Envía al SRI la factura que acabamos de crear."*
+- *"Cambia a la cuenta de mi otro negocio y lista sus últimas 10 facturas."*
+
+## Cómo se crea y envía una factura
+
+1. Claude busca al cliente, los productos y el punto de emisión en tu cuenta.
+2. Crea la factura como **borrador**. Tellen calcula el IVA y los totales según la configuración de cada producto.
+3. Cuando le pides enviarla, Tellen la firma con tu certificado y la manda al SRI. La autorización llega en segundo plano; puedes preguntarle a Claude por el estado o revisarla en Tellen.
+
+La factura usa el ambiente (pruebas o producción) configurado en tu cuenta. Si quieres probar el conector sin efecto tributario, hazlo con tu cuenta en **pruebas**.
+
+## Anulaciones
+
+Claude puede marcar como anulada una factura autorizada hasta el día 7 del mes siguiente a su emisión. Igual que cuando anulas desde Tellen, también debes solicitar la anulación en el portal del SRI. Revisa [Cómo anular una factura](/como-anular-una-factura).
+
+## Varias cuentas
+
+Si tienes acceso a varios negocios en Tellen, el conector trabaja sobre la última cuenta que usaste. Pídele a Claude que te muestre tus cuentas o que cambie a otra; el cambio se mantiene para las siguientes conversaciones.
+
+## Desconecta Claude
+
+Puedes quitarle el acceso cuando quieras:
+
+- **Desde Tellen:** ve a **Configuración** → **Apps conectadas** y revoca el acceso de Claude.
+- **Desde Claude:** en **Configuración** → **Conectores**, desconecta Tellen.
+
+Al revocar el acceso, Claude deja de poder leer o modificar tus datos de inmediato.
+
+## Privacidad
+
+Claude solo accede a los datos de las cuentas en las que tienes permiso, y solo cuando usa una herramienta del conector. Tellen no comparte tu certificado de firma ni tu contraseña con Claude. Para más detalles, revisa nuestra [política de privacidad](https://tellen.app/privacy/).
+
+## Soporte
+
+¿Tienes problemas con el conector? Escríbenos desde el chat de Tellen o a [soporte@tellen.app](mailto:soporte@tellen.app).

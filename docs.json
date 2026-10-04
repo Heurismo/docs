@@ -45,8 +45,7 @@
                   "ordenes-de-venta",
                   "producto/emite-comprobantes",
                   "como-anular-una-factura"
-                ],
-                "icon": "dollar-sign"
+                ]
               },
               {
                 "group": "Contactos",
@@ -60,11 +59,10 @@
                 "pages": [
                   "productos",
                   "como-gestionar-y-consultar-el-detalle-de-un-producto-o-servicio"
-                ],
-                "icon": "box"
+                ]
               },
               {
-                "group": "Documentos Emitidos ",
+                "group": "Documentos Emitidos",
                 "pages": [
                   "como-emitir-un-comprobante-de-retencion",
                   "notas-de-credito-y-debito",
@@ -78,8 +76,7 @@
                 "pages": [
                   "sincronizacion-sri-plan-profesional",
                   "importacion-en-lote-plan-basico"
-                ],
-                "icon": "file"
+                ]
               },
               {
                 "group": "Reportes",
@@ -103,10 +100,18 @@
             ]
           },
           {
+            "group": "Integraciones",
+            "icon": "plug",
+            "pages": [
+              "integraciones/claude"
+            ]
+          },
+          {
             "group": "Tellen AI",
             "pages": [
               "te"
-            ]
+            ],
+            "icon": "sparkles"
           },
           {
             "group": "Casos de uso",
@@ -135,7 +140,8 @@
             "icon": "book-open",
             "pages": [
               "api-reference/tu-propia-cuenta",
-              "api-reference/cuentas-hijas"
+              "api-reference/cuentas-hijas",
+              "api-reference/limites"
             ]
           },
           {
