@@ -1,0 +1,56 @@
+---
+title: "Límites"
+description: "Límites de uso de la API de Tellen: cuántas solicitudes puedes hacer, cómo se paginan los listados y qué hacer cuando recibes un 429."
+---
+
+La API aplica algunos límites para mantener el servicio estable para todas las cuentas. Diseña tu integración para respetarlos desde el inicio.
+
+## Límite de solicitudes
+
+| Límite | Valor |
+|---|---|
+| Solicitudes por dirección IP | 300 cada 5 minutos (en promedio, 60 por minuto) |
+
+El límite se cuenta por **dirección IP**, no por token ni por cuenta. Si varias integraciones o servidores salen a internet por la misma IP, comparten este límite.
+
+### Cuando superas el límite
+
+Tellen responde con `429 Too Many Requests` y la solicitud no se procesa. La respuesta no incluye una cabecera `Retry-After`, así que tu integración decide cuánto esperar:
+
+1. Espera unos segundos antes de reintentar.
+2. Si vuelves a recibir `429`, duplica la espera en cada intento (backoff exponencial) hasta un máximo de 5 minutos.
+3. Reintenta solo solicitudes seguras de repetir. Antes de reintentar un `POST` que crea un comprobante, confirma con un listado que no se haya creado ya.
+
+<Tip>
+  Para sincronizar muchos registros, recorre los listados página por página en lugar de pedir cada recurso por separado. Una página trae hasta 25 registros en una sola solicitud.
+</Tip>
+
+## Paginación
+
+Los listados (`GET` de facturas, cotizaciones, pedidos, contactos, productos, establecimientos y puntos de emisión) devuelven **25 registros por página**. El tamaño de página es fijo.
+
+Pide otra página con el parámetro `page`:
+
+```bash
+curl "https://dashboard.tellen.app/api/v1/accounts/{account_id}/invoices?page=2" \
+  -H "Authorization: Bearer tellen_tk_..."
+```
+
+Cada respuesta incluye un objeto `pagination`:
+
+```json
+{
+  "invoices": [ ... ],
+  "pagination": {
+    "page": 2,
+    "total_pages": 8,
+    "total_count": 187
+  }
+}
+```
+
+Sigue pidiendo páginas mientras `page` sea menor que `total_pages`.
+
+## Certificados de firma
+
+El archivo `.p12` que subes con [Subir un certificado de firma](/api-reference/certificados/subir-un-certificado-de-firma) puede pesar como máximo **5 MB**.

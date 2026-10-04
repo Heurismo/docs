@@ -54,7 +54,40 @@ tags:
       `initial_stock` se ignora.
   - name: Facturas
     description: Facturas de venta (comprobante electrónico 01).
+  - name: Cotizaciones
+    description: |
+      Cotizaciones (proformas) para tus clientes. No son comprobantes del SRI;
+      se convierten en factura cuando el cliente acepta. Disponibles desde el
+      plan Profesional.
+  - name: Pedidos
+    description: |
+      Pedidos (órdenes) de tus clientes: acumulan abonos y se emiten como
+      factura cuando los abonos cubren el total. No son comprobantes del SRI.
+      Disponibles desde el plan Profesional.
 paths:
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: Consultar tu usuario
+      description: |
+        Devuelve el usuario dueño del token: la persona que inició sesión o, con
+        un token de API, el usuario de API de tu cuenta.
+      tags: [Cuentas]
+      responses:
+        "200":
+          description: Tu usuario.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/accounts:
     get:
       operationId: listAccounts
@@ -1132,6 +1165,538 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/quotes:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listQuotes
+      summary: Listar cotizaciones
+      description: Devuelve las cotizaciones de la cuenta, de la más reciente a la más antigua, con paginación.
+      tags: [Cotizaciones]
+      parameters:
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, sent, rejected, converted]
+        - name: contact_id
+          in: query
+          description: Filtrar por cliente.
+          schema:
+            type: string
+            format: uuid
+        - name: query
+          in: query
+          description: Buscar por número de cotización, o por nombre o identificación del cliente.
+          schema:
+            type: string
+        - name: emission_date_from
+          in: query
+          description: Cotizaciones emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Cotizaciones emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las cotizaciones de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [quotes, pagination]
+                properties:
+                  quotes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QuoteSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createQuote
+      summary: Crear una cotización
+      description: |
+        Crea una cotización en borrador. Los impuestos de cada ítem se derivan
+        del producto referenciado, igual que en las facturas.
+      tags: [Cotizaciones]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCreateRequest"
+      responses:
+        "201":
+          description: La cotización creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/quotes/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la cotización.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getQuote
+      summary: Consultar una cotización
+      description: Devuelve la cotización con sus ítems, cliente, punto de emisión y, si ya se convirtió, la factura generada.
+      tags: [Cotizaciones]
+      responses:
+        "200":
+          description: La cotización.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateQuote
+      summary: Editar una cotización
+      description: |
+        Edita una cotización en borrador o enviada. Si envías `items`, reemplaza
+        todos los ítems actuales.
+      tags: [Cotizaciones]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteUpdateRequest"
+      responses:
+        "200":
+          description: La cotización actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteQuote
+      summary: Eliminar una cotización
+      description: Elimina una cotización. Las que ya se convirtieron en factura no se pueden eliminar.
+      tags: [Cotizaciones]
+      responses:
+        "204":
+          description: La cotización fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/quotes/{id}/convert_to_invoice:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la cotización.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: convertQuoteToInvoice
+      summary: Convertir una cotización en factura
+      description: |
+        Crea una factura en borrador con el cliente, el punto de emisión y los
+        ítems de la cotización, que queda como `converted`. La cotización debe
+        tener un punto de emisión. Para enviar la factura al SRI, usa luego el
+        endpoint de envío de facturas.
+      tags: [Cotizaciones]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment_method:
+                  type: string
+                  description: Código SRI de forma de pago de la factura (por defecto `20`).
+      responses:
+        "201":
+          description: La factura creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/orders:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listOrders
+      summary: Listar pedidos
+      description: Devuelve los pedidos de la cuenta, del más reciente al más antiguo, con paginación.
+      tags: [Pedidos]
+      parameters:
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [open, cancelled, emitted]
+        - name: contact_id
+          in: query
+          description: Filtrar por cliente.
+          schema:
+            type: string
+            format: uuid
+        - name: query
+          in: query
+          description: Buscar por número de pedido, o por nombre o identificación del cliente.
+          schema:
+            type: string
+        - name: emission_date_from
+          in: query
+          description: Pedidos creados desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Pedidos creados hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los pedidos de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders, pagination]
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/OrderSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createOrder
+      summary: Crear un pedido
+      description: |
+        Crea un pedido abierto. Los impuestos de cada ítem se derivan del
+        producto referenciado, igual que en las facturas.
+      tags: [Pedidos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderCreateRequest"
+      responses:
+        "201":
+          description: El pedido creado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/orders/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del pedido.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getOrder
+      summary: Consultar un pedido
+      description: Devuelve el pedido con sus ítems, abonos, cliente, punto de emisión y, si ya se emitió, la factura generada.
+      tags: [Pedidos]
+      responses:
+        "200":
+          description: El pedido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateOrder
+      summary: Editar un pedido
+      description: |
+        Edita un pedido abierto. Si envías `items`, reemplaza todos los ítems
+        actuales.
+      tags: [Pedidos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderUpdateRequest"
+      responses:
+        "200":
+          description: El pedido actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteOrder
+      summary: Eliminar un pedido
+      description: Elimina un pedido y sus abonos. Los que ya se emitieron como factura no se pueden eliminar.
+      tags: [Pedidos]
+      responses:
+        "204":
+          description: El pedido fue eliminado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/orders/{id}/emit_to_invoice:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del pedido.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: emitOrderToInvoice
+      summary: Emitir un pedido como factura
+      description: |
+        Crea una factura en borrador con el cliente, el punto de emisión y los
+        ítems del pedido, con sus pagos tomados de los abonos (uno por forma de
+        pago). El pedido queda como `emitted`. Requiere un punto de emisión y
+        abonos que cubran el total (`ready_to_emit`). Para enviar la factura al
+        SRI, usa luego el endpoint de envío de facturas.
+      tags: [Pedidos]
+      responses:
+        "201":
+          description: La factura creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/orders/{order_id}/collections:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: order_id
+        in: path
+        required: true
+        description: Identificador del pedido.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createOrderCollection
+      summary: Registrar un abono
+      description: |
+        Registra un abono en un pedido abierto. No puede superar el saldo
+        pendiente. Devuelve el pedido actualizado.
+      tags: [Pedidos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionCreateRequest"
+      responses:
+        "201":
+          description: El pedido con el abono registrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/orders/{order_id}/collections/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: order_id
+        in: path
+        required: true
+        description: Identificador del pedido.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del abono.
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteOrderCollection
+      summary: Eliminar un abono
+      description: Elimina un abono de un pedido abierto. Devuelve el pedido actualizado.
+      tags: [Pedidos]
+      responses:
+        "200":
+          description: El pedido sin el abono.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 components:
   securitySchemes:
     bearerAuth:
@@ -1142,6 +1707,27 @@ components:
         tu token desde tu cuenta de Tellen. Tu cuenta debe tener el acceso a la
         API habilitado.
   schemas:
+    User:
+      type: object
+      required: [id, email, name, image_url, provider]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: [string, "null"]
+          description: Nombre y apellido, o `null` si no los ha registrado.
+        image_url:
+          type: [string, "null"]
+          format: uri
+          description: Foto de perfil de Google o Apple, o `null` si no tiene.
+        provider:
+          type: [string, "null"]
+          enum: [google_oauth2, apple, null]
+          description: Con qué cuenta inicia sesión, o `null` si usa correo y contraseña.
     Account:
       type: object
       description: Forma resumida (para listados).
@@ -1162,11 +1748,16 @@ components:
         plan:
           type: string
           enum: [basico, profesional, empresarial]
+        logo_url:
+          type: [string, "null"]
+          format: uri
+          description: URL pública del logo de la cuenta, o `null` si no tiene.
     AccountDetail:
       description: Forma completa (al consultar, crear o actualizar una cuenta), con el perfil del SRI, datos de contacto y establecimientos.
       allOf:
         - $ref: "#/components/schemas/Account"
         - type: object
+          required: [dir_matriz, email, phone, billing_email, regimen, obligado_contabilidad, agente_retencion, contribuyente_especial, exportador, production_mode, can_issue_documents, permissions, stores, created_at]
           properties:
             dir_matriz:
               type: string
@@ -1192,6 +1783,54 @@ components:
             production_mode:
               type: boolean
               description: "true = ambiente de producción del SRI; false = pruebas."
+            can_issue_documents:
+              type: boolean
+              description: |
+                `false` cuando la cuenta no tiene un plan activo y ya usó sus
+                facturas gratuitas. Mientras tanto, los recursos de la cuenta
+                responden `402`.
+            permissions:
+              type: object
+              description: |
+                Lo que puedes hacer en la cuenta, según su plan y tu rol en ella.
+                Con un token de API todo lo que el plan incluye es `true`.
+              required: [create_invoices, submit_invoices, void_invoices, create_quotes, convert_quotes, create_orders, emit_orders, record_collections, manage_contacts, manage_products, read_certificates, manage_settings]
+              properties:
+                create_invoices:
+                  type: boolean
+                submit_invoices:
+                  type: boolean
+                  description: Enviar facturas al SRI.
+                void_invoices:
+                  type: boolean
+                  description: Anular facturas autorizadas.
+                create_quotes:
+                  type: boolean
+                  description: Crear cotizaciones (proformas).
+                convert_quotes:
+                  type: boolean
+                  description: Convertir cotizaciones en factura.
+                create_orders:
+                  type: boolean
+                  description: Crear pedidos con abonos.
+                emit_orders:
+                  type: boolean
+                  description: Emitir pedidos como factura.
+                record_collections:
+                  type: boolean
+                  description: Registrar y eliminar abonos.
+                manage_contacts:
+                  type: boolean
+                  description: Crear, editar y eliminar clientes y proveedores.
+                manage_products:
+                  type: boolean
+                  description: Crear, editar y eliminar productos.
+                read_certificates:
+                  type: boolean
+                  description: Ver los certificados de firma electrónica.
+                manage_settings:
+                  type: boolean
+                  description: Editar los datos y la configuración de la cuenta.
             stores:
               type: array
               description: Establecimientos de la cuenta.
@@ -1365,8 +2004,9 @@ components:
         total:
           type: number
           description: Total de la factura, con impuestos.
-    InvoiceItem:
+    DocumentDetail:
       type: object
+      required: [id, product_id, code, description, quantity, unit_price, discount, subtotal, tax_rate, tax_value, total]
       properties:
         id:
           type: string
@@ -1395,7 +2035,7 @@ components:
           type: number
     Invoice:
       type: object
-      required: [id, status, sequential, emission_date, total, items]
+      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, total_without_taxes, total_discount, total, access_key, authorization_number, error_message, created_at, items]
       properties:
         id:
           type: string
@@ -1451,7 +2091,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/InvoiceItem"
+            $ref: "#/components/schemas/DocumentDetail"
     InvoiceEnvelope:
       type: object
       required: [invoice]
@@ -1469,7 +2109,7 @@ components:
         status:
           type: string
           enum: [draft, pending, authorized, rejected, cancelled]
-    InvoiceItemRequest:
+    DocumentDetailRequest:
       type: object
       description: |
         Referencia un producto por `product_variant_id` (preferido) o por
@@ -1515,7 +2155,7 @@ components:
               type: array
               minItems: 1
               items:
-                $ref: "#/components/schemas/InvoiceItemRequest"
+                $ref: "#/components/schemas/DocumentDetailRequest"
     InvoiceUpdateRequest:
       type: object
       required: [invoice]
@@ -1533,7 +2173,138 @@ components:
               type: array
               description: Si se envía, reemplaza todos los ítems actuales.
               items:
-                $ref: "#/components/schemas/InvoiceItemRequest"
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    QuoteSummary:
+      type: object
+      required: [id, number, status, expired, emission_date, expires_at, contact_name, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          description: Número de la cotización, con ceros a la izquierda.
+        status:
+          type: string
+          enum: [draft, sent, rejected, converted]
+        expired:
+          type: boolean
+          description: "`true` si pasó su fecha de vencimiento sin convertirse."
+        emission_date:
+          type: string
+          format: date
+        expires_at:
+          type: [string, "null"]
+          format: date
+        contact_name:
+          type: string
+          description: Razón social del cliente.
+        total:
+          type: number
+          description: Total de la cotización, con impuestos.
+    Quote:
+      allOf:
+        - $ref: "#/components/schemas/QuoteSummary"
+        - type: object
+          required: [contact, emission_point, notes, invoice_id, total_without_taxes, total_discount, created_at, items]
+          properties:
+            contact:
+              type: object
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: string
+                identificacion:
+                  type: string
+            emission_point:
+              type: [object, "null"]
+              description: Punto de emisión con el que se facturará; necesario para convertirla.
+              required: [id, code, store_code]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                code:
+                  type: string
+                store_code:
+                  type: [string, "null"]
+            notes:
+              type: [string, "null"]
+            invoice_id:
+              type: [string, "null"]
+              format: uuid
+              description: La factura en que se convirtió, si ya se convirtió.
+            total_without_taxes:
+              type: number
+            total_discount:
+              type: number
+            created_at:
+              type: string
+              format: date-time
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentDetail"
+    QuoteEnvelope:
+      type: object
+      required: [quote]
+      properties:
+        quote:
+          $ref: "#/components/schemas/Quote"
+    QuoteCreateRequest:
+      type: object
+      required: [quote]
+      properties:
+        quote:
+          type: object
+          required: [contact_id, items]
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+              description: Cliente de la cotización.
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Punto de emisión con el que se facturará. Necesario para convertirla en factura.
+            expires_at:
+              type: string
+              format: date
+              description: Fecha hasta la que es válida.
+            notes:
+              type: string
+            items:
+              type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    QuoteUpdateRequest:
+      type: object
+      required: [quote]
+      properties:
+        quote:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+            emission_point_id:
+              type: string
+              format: uuid
+            expires_at:
+              type: string
+              format: date
+            notes:
+              type: string
+            items:
+              type: array
+              description: Si se envía, reemplaza todos los ítems actuales.
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
     ContactSummary:
       type: object
       required: [id, razon_social, identificacion, tipo_identificacion, cliente, proveedor]
@@ -1937,6 +2708,178 @@ components:
               type: boolean
             low_stock_threshold:
               type: number
+    OrderSummary:
+      type: object
+      required: [id, number, status, emission_date, contact_name, total, collected_amount, outstanding_amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          description: Número del pedido, p. ej. `ORD-000042`.
+        status:
+          type: string
+          enum: [open, cancelled, emitted]
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: string
+          description: Razón social del cliente.
+        total:
+          type: number
+          description: Total del pedido, con impuestos.
+        collected_amount:
+          type: number
+          description: Suma de los abonos registrados.
+        outstanding_amount:
+          type: number
+          description: Lo que falta abonar para cubrir el total.
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/OrderSummary"
+        - type: object
+          required: [contact, emission_point, notes, ready_to_emit, invoice_id, total_without_taxes, total_discount, created_at, items, collections]
+          properties:
+            contact:
+              type: object
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: string
+                identificacion:
+                  type: string
+            emission_point:
+              type: [object, "null"]
+              description: Punto de emisión con el que se facturará; necesario para emitirlo.
+              required: [id, code, store_code]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                code:
+                  type: string
+                store_code:
+                  type: [string, "null"]
+            notes:
+              type: [string, "null"]
+            ready_to_emit:
+              type: boolean
+              description: "`true` si está abierto, tiene punto de emisión y los abonos cubren el total."
+            invoice_id:
+              type: [string, "null"]
+              format: uuid
+              description: La factura en que se emitió, si ya se emitió.
+            total_without_taxes:
+              type: number
+            total_discount:
+              type: number
+            created_at:
+              type: string
+              format: date-time
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentDetail"
+            collections:
+              type: array
+              description: Abonos, del más reciente al más antiguo.
+              items:
+                $ref: "#/components/schemas/Collection"
+    OrderEnvelope:
+      type: object
+      required: [order]
+      properties:
+        order:
+          $ref: "#/components/schemas/Order"
+    OrderCreateRequest:
+      type: object
+      required: [order]
+      properties:
+        order:
+          type: object
+          required: [contact_id, items]
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+              description: Cliente del pedido.
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Punto de emisión con el que se facturará. Necesario para emitirlo.
+            notes:
+              type: string
+            items:
+              type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    OrderUpdateRequest:
+      type: object
+      required: [order]
+      properties:
+        order:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+            emission_point_id:
+              type: string
+              format: uuid
+            notes:
+              type: string
+            items:
+              type: array
+              description: Si se envía, reemplaza todos los ítems actuales.
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    Collection:
+      type: object
+      required: [id, amount, collected_on, forma_pago, forma_pago_label, notes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        collected_on:
+          type: string
+          format: date
+        forma_pago:
+          type: string
+          description: Código SRI de forma de pago.
+        forma_pago_label:
+          type: string
+          description: Nombre SRI de la forma de pago.
+        notes:
+          type: [string, "null"]
+    CollectionCreateRequest:
+      type: object
+      required: [collection]
+      properties:
+        collection:
+          type: object
+          required: [amount, forma_pago]
+          properties:
+            amount:
+              type: number
+              description: Monto del abono; no puede superar el saldo pendiente.
+            forma_pago:
+              type: string
+              description: "Código SRI de forma de pago: `01` sin sistema financiero (efectivo), `19` tarjeta de crédito, `20` otros con sistema financiero (p. ej. transferencia)"
+            collected_on:
+              type: string
+              format: date
+              description: Fecha del abono (por defecto hoy; no puede ser futura).
+            notes:
+              type: string
   responses:
     Unauthorized:
       description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
@@ -1946,6 +2889,18 @@ components:
             $ref: "#/components/schemas/Error"
     Forbidden:
       description: Tu cuenta no tiene el acceso a la API habilitado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    QuotesForbidden:
+      description: Tu plan no incluye cotizaciones (disponibles desde Profesional), o tu rol no permite esta acción.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    OrdersForbidden:
+      description: Tu plan no incluye pedidos (disponibles desde Profesional), o tu rol no permite esta acción.
       content:
         application/json:
           schema:
