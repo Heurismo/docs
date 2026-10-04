@@ -59,9 +59,9 @@ tags:
       Cotizaciones (proformas) para tus clientes. No son comprobantes del SRI;
       se convierten en factura cuando el cliente acepta. Disponibles desde el
       plan Profesional.
-  - name: Pedidos
+  - name: Órdenes
     description: |
-      Pedidos (órdenes) de tus clientes: acumulan abonos y se emiten como
+      Órdenes de tus clientes: acumulan abonos y se emiten como
       factura cuando los abonos cubren el total. No son comprobantes del SRI.
       Disponibles desde el plan Profesional.
 paths:
@@ -1403,9 +1403,9 @@ paths:
           format: uuid
     get:
       operationId: listOrders
-      summary: Listar pedidos
-      description: Devuelve los pedidos de la cuenta, del más reciente al más antiguo, con paginación.
-      tags: [Pedidos]
+      summary: Listar órdenes
+      description: Devuelve las órdenes de la cuenta, del más reciente al más antiguo, con paginación.
+      tags: [Órdenes]
       parameters:
         - name: status
           in: query
@@ -1421,18 +1421,18 @@ paths:
             format: uuid
         - name: query
           in: query
-          description: Buscar por número de pedido, o por nombre o identificación del cliente.
+          description: Buscar por número de orden, o por nombre o identificación del cliente.
           schema:
             type: string
         - name: emission_date_from
           in: query
-          description: Pedidos creados desde esta fecha (YYYY-MM-DD).
+          description: Órdenes creadas desde esta fecha (YYYY-MM-DD).
           schema:
             type: string
             format: date
         - name: emission_date_to
           in: query
-          description: Pedidos creados hasta esta fecha (YYYY-MM-DD).
+          description: Órdenes creadas hasta esta fecha (YYYY-MM-DD).
           schema:
             type: string
             format: date
@@ -1444,7 +1444,7 @@ paths:
             minimum: 1
       responses:
         "200":
-          description: Los pedidos de la cuenta, paginados.
+          description: Las órdenes de la cuenta, paginadas.
           content:
             application/json:
               schema:
@@ -1465,11 +1465,11 @@ paths:
           $ref: "#/components/responses/NotFound"
     post:
       operationId: createOrder
-      summary: Crear un pedido
+      summary: Crear una orden
       description: |
-        Crea un pedido abierto. Los impuestos de cada ítem se derivan del
+        Crea una orden abierta. Los impuestos de cada ítem se derivan del
         producto referenciado, igual que en las facturas.
-      tags: [Pedidos]
+      tags: [Órdenes]
       requestBody:
         required: true
         content:
@@ -1478,7 +1478,7 @@ paths:
               $ref: "#/components/schemas/OrderCreateRequest"
       responses:
         "201":
-          description: El pedido creado.
+          description: La orden creada.
           content:
             application/json:
               schema:
@@ -1503,18 +1503,18 @@ paths:
       - name: id
         in: path
         required: true
-        description: Identificador del pedido.
+        description: Identificador de la orden.
         schema:
           type: string
           format: uuid
     get:
       operationId: getOrder
-      summary: Consultar un pedido
-      description: Devuelve el pedido con sus ítems, abonos, cliente, punto de emisión y, si ya se emitió, la factura generada.
-      tags: [Pedidos]
+      summary: Consultar una orden
+      description: Devuelve la orden con sus ítems, abonos, cliente, punto de emisión y, si ya se emitió, la factura generada.
+      tags: [Órdenes]
       responses:
         "200":
-          description: El pedido.
+          description: La orden.
           content:
             application/json:
               schema:
@@ -1527,11 +1527,11 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       operationId: updateOrder
-      summary: Editar un pedido
+      summary: Editar una orden
       description: |
-        Edita un pedido abierto. Si envías `items`, reemplaza todos los ítems
+        Edita una orden abierta. Si envías `items`, reemplaza todos los ítems
         actuales.
-      tags: [Pedidos]
+      tags: [Órdenes]
       requestBody:
         required: true
         content:
@@ -1540,7 +1540,7 @@ paths:
               $ref: "#/components/schemas/OrderUpdateRequest"
       responses:
         "200":
-          description: El pedido actualizado.
+          description: La orden actualizada.
           content:
             application/json:
               schema:
@@ -1555,12 +1555,12 @@ paths:
           $ref: "#/components/responses/ValidationError"
     delete:
       operationId: deleteOrder
-      summary: Eliminar un pedido
-      description: Elimina un pedido y sus abonos. Los que ya se emitieron como factura no se pueden eliminar.
-      tags: [Pedidos]
+      summary: Eliminar una orden
+      description: Elimina una orden y sus abonos. Las que ya se emitieron como factura no se pueden eliminar.
+      tags: [Órdenes]
       responses:
         "204":
-          description: El pedido fue eliminado.
+          description: La orden fue eliminada.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1581,20 +1581,20 @@ paths:
       - name: id
         in: path
         required: true
-        description: Identificador del pedido.
+        description: Identificador de la orden.
         schema:
           type: string
           format: uuid
     post:
       operationId: emitOrderToInvoice
-      summary: Emitir un pedido como factura
+      summary: Emitir una orden como factura
       description: |
         Crea una factura en borrador con el cliente, el punto de emisión y los
-        ítems del pedido, con sus pagos tomados de los abonos (uno por forma de
-        pago). El pedido queda como `emitted`. Requiere un punto de emisión y
+        ítems de la orden, con sus pagos tomados de los abonos (uno por forma de
+        pago). La orden queda como `emitted`. Requiere un punto de emisión y
         abonos que cubran el total (`ready_to_emit`). Para enviar la factura al
         SRI, usa luego el endpoint de envío de facturas.
-      tags: [Pedidos]
+      tags: [Órdenes]
       responses:
         "201":
           description: La factura creada en borrador.
@@ -1622,7 +1622,7 @@ paths:
       - name: order_id
         in: path
         required: true
-        description: Identificador del pedido.
+        description: Identificador de la orden.
         schema:
           type: string
           format: uuid
@@ -1630,9 +1630,9 @@ paths:
       operationId: createOrderCollection
       summary: Registrar un abono
       description: |
-        Registra un abono en un pedido abierto. No puede superar el saldo
-        pendiente. Devuelve el pedido actualizado.
-      tags: [Pedidos]
+        Registra un abono en una orden abierta. No puede superar el saldo
+        pendiente. Devuelve la orden actualizada.
+      tags: [Órdenes]
       requestBody:
         required: true
         content:
@@ -1641,7 +1641,7 @@ paths:
               $ref: "#/components/schemas/CollectionCreateRequest"
       responses:
         "201":
-          description: El pedido con el abono registrado.
+          description: La orden con el abono registrado.
           content:
             application/json:
               schema:
@@ -1666,7 +1666,7 @@ paths:
       - name: order_id
         in: path
         required: true
-        description: Identificador del pedido.
+        description: Identificador de la orden.
         schema:
           type: string
           format: uuid
@@ -1680,11 +1680,11 @@ paths:
     delete:
       operationId: deleteOrderCollection
       summary: Eliminar un abono
-      description: Elimina un abono de un pedido abierto. Devuelve el pedido actualizado.
-      tags: [Pedidos]
+      description: Elimina un abono de una orden abierta. Devuelve la orden actualizada.
+      tags: [Órdenes]
       responses:
         "200":
-          description: El pedido sin el abono.
+          description: La orden sin el abono.
           content:
             application/json:
               schema:
@@ -1812,10 +1812,10 @@ components:
                   description: Convertir cotizaciones en factura.
                 create_orders:
                   type: boolean
-                  description: Crear pedidos con abonos.
+                  description: Crear órdenes con abonos.
                 emit_orders:
                   type: boolean
-                  description: Emitir pedidos como factura.
+                  description: Emitir órdenes como factura.
                 record_collections:
                   type: boolean
                   description: Registrar y eliminar abonos.
@@ -2717,7 +2717,7 @@ components:
           format: uuid
         number:
           type: string
-          description: Número del pedido, p. ej. `ORD-000042`.
+          description: Número de la orden, p. ej. `ORD-000042`.
         status:
           type: string
           enum: [open, cancelled, emitted]
@@ -2729,7 +2729,7 @@ components:
           description: Razón social del cliente.
         total:
           type: number
-          description: Total del pedido, con impuestos.
+          description: Total de la orden, con impuestos.
         collected_amount:
           type: number
           description: Suma de los abonos registrados.
@@ -2807,7 +2807,7 @@ components:
             contact_id:
               type: string
               format: uuid
-              description: Cliente del pedido.
+              description: Cliente de la orden.
             emission_point_id:
               type: string
               format: uuid
@@ -2900,7 +2900,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     OrdersForbidden:
-      description: Tu plan no incluye pedidos (disponibles desde Profesional), o tu rol no permite esta acción.
+      description: Tu plan no incluye órdenes (disponibles desde Profesional), o tu rol no permite esta acción.
       content:
         application/json:
           schema:
