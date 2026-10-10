@@ -21,6 +21,8 @@ security:
 tags:
   - name: Cuentas
     description: Tu cuenta y, si administras varias, las cuentas que gestionas.
+  - name: Resumen
+    description: Las cifras del mes de una cuenta, lo vendido y comprado y lo que se debe.
   - name: Certificados
     description: Certificados de firma electrónica (.p12) usados para firmar documentos ante el SRI.
   - name: Contactos
@@ -64,6 +66,11 @@ tags:
       Órdenes de tus clientes: acumulan abonos y se emiten como
       factura cuando los abonos cubren el total. No son comprobantes del SRI.
       Disponibles desde el plan Profesional.
+  - name: Comprobantes recibidos
+    description: |
+      Comprobantes que te emitieron tus proveedores, tal como llegan del SRI.
+      Por ahora, los que tienen detalle de productos: facturas, notas de
+      crédito y liquidaciones de compra. Siempre son de producción.
 paths:
   /api/v1/me:
     get:
@@ -211,6 +218,51 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/summary:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAccountSummary
+      summary: Consultar el resumen del mes
+      description: |
+        Lo vendido y comprado en el mes, y lo que hoy está por cobrar y por
+        pagar. Son los mismos totales de los reportes de ventas, cuentas por
+        cobrar y cuentas por pagar.
+
+        Ventas, compras propias (liquidaciones) y por cobrar siguen el ambiente
+        de la cuenta (pruebas o producción). Las compras recibidas del SRI no
+        tienen ambiente. Requiere poder ver reportes (`permissions.read_reports`).
+      tags: [Resumen]
+      parameters:
+        - name: month
+          in: query
+          required: false
+          description: Mes a resumir, como `AAAA-MM`. Por defecto, el mes en curso.
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+            example: "2026-10"
+      responses:
+        "200":
+          description: El resumen del mes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountSummaryEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReportsForbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -622,6 +674,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: first_id
+          in: query
+          description: Pone este punto de emisión primero en la lista, para que siempre esté en la primera página.
+          schema:
+            type: string
+            format: uuid
         - name: page
           in: query
           description: Número de página (25 por página).
@@ -775,6 +833,14 @@ paths:
           schema:
             type: string
             enum: [bien, servicio]
+        - name: ids[]
+          in: query
+          description: Solo estos productos, todos en una página. Sirve para refrescar los impuestos de las líneas de un borrador.
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
         - name: page
           in: query
           description: Número de página (25 por página).
@@ -1697,6 +1763,120 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/received_documents:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listReceivedDocuments
+      summary: Listar comprobantes recibidos
+      description: Devuelve las facturas, notas de crédito y liquidaciones de compra recibidas, de la más reciente a la más antigua, con paginación.
+      tags: [Comprobantes recibidos]
+      parameters:
+        - name: type
+          in: query
+          description: Filtrar por tipo de comprobante.
+          schema:
+            type: string
+            enum: [invoice, credit_note, purchase_liquidation]
+        - name: outstanding
+          in: query
+          description: Con `true`, solo lo que aún se le debe al proveedor.
+          schema:
+            type: boolean
+        - name: contact_id
+          in: query
+          description: Filtrar por proveedor.
+          schema:
+            type: string
+            format: uuid
+        - name: query
+          in: query
+          description: Buscar por proveedor (nombre o RUC), número, clave de acceso o autorización.
+          schema:
+            type: string
+        - name: authorization_date_from
+          in: query
+          description: Autorizados por el SRI desde esta fecha (YYYY-MM-DD, hora de Ecuador).
+          schema:
+            type: string
+            format: date
+        - name: authorization_date_to
+          in: query
+          description: Autorizados por el SRI hasta esta fecha (YYYY-MM-DD, hora de Ecuador).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los comprobantes recibidos, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_documents, pagination]
+                properties:
+                  received_documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ReceivedDocumentSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/received_documents/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del comprobante recibido.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getReceivedDocument
+      summary: Consultar un comprobante recibido
+      description: Devuelve el comprobante con su detalle, sus impuestos y los pagos hechos al proveedor.
+      tags: [Comprobantes recibidos]
+      responses:
+        "200":
+          description: El comprobante recibido.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_document]
+                properties:
+                  received_document:
+                    $ref: "#/components/schemas/ReceivedDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -1794,10 +1974,13 @@ components:
               description: |
                 Lo que puedes hacer en la cuenta, según su plan y tu rol en ella.
                 Con un token de API todo lo que el plan incluye es `true`.
-              required: [create_invoices, submit_invoices, void_invoices, create_quotes, convert_quotes, create_orders, emit_orders, record_collections, manage_contacts, manage_products, read_certificates, manage_settings]
+              required: [create_invoices, edit_invoices, submit_invoices, void_invoices, create_quotes, convert_quotes, create_orders, emit_orders, record_collections, read_received_documents, manage_contacts, manage_products, read_certificates, read_reports, manage_settings]
               properties:
                 create_invoices:
                   type: boolean
+                edit_invoices:
+                  type: boolean
+                  description: Editar facturas en borrador o rechazadas.
                 submit_invoices:
                   type: boolean
                   description: Enviar facturas al SRI.
@@ -1819,6 +2002,9 @@ components:
                 record_collections:
                   type: boolean
                   description: Registrar y eliminar abonos.
+                read_received_documents:
+                  type: boolean
+                  description: Ver los comprobantes recibidos de proveedores.
                 manage_contacts:
                   type: boolean
                   description: Crear, editar y eliminar clientes y proveedores.
@@ -1828,6 +2014,9 @@ components:
                 read_certificates:
                   type: boolean
                   description: Ver los certificados de firma electrónica.
+                read_reports:
+                  type: boolean
+                  description: Ver reportes y el resumen del mes.
                 manage_settings:
                   type: boolean
                   description: Editar los datos y la configuración de la cuenta.
@@ -1854,6 +2043,58 @@ components:
       properties:
         account:
           $ref: "#/components/schemas/AccountDetail"
+    AccountSummaryEnvelope:
+      type: object
+      required: [summary]
+      properties:
+        summary:
+          $ref: "#/components/schemas/AccountSummary"
+    AccountSummary:
+      type: object
+      required: [month, sales, receivable, purchases, payable]
+      properties:
+        month:
+          type: string
+          description: El mes resumido, como `AAAA-MM`.
+          example: "2026-10"
+        sales:
+          type: object
+          description: Facturas autorizadas emitidas en el mes.
+          required: [total, count]
+          properties:
+            total:
+              type: number
+            count:
+              type: integer
+        receivable:
+          type: object
+          description: Lo que hoy deben los clientes por facturas a crédito, sin importar el mes.
+          required: [total, overdue]
+          properties:
+            total:
+              type: number
+            overdue:
+              type: number
+              description: La parte ya vencida.
+        purchases:
+          type: object
+          description: |
+            Facturas y notas de débito recibidas emitidas en el mes, más las
+            liquidaciones de compra autorizadas.
+          required: [total]
+          properties:
+            total:
+              type: number
+        payable:
+          type: object
+          description: Lo que hoy se debe a proveedores por documentos recibidos, sin importar el mes.
+          required: [total, count]
+          properties:
+            total:
+              type: number
+            count:
+              type: integer
+              description: Documentos con saldo pendiente.
     Certificate:
       type: object
       required: [id, name, active, expires_at]
@@ -2004,9 +2245,26 @@ components:
         total:
           type: number
           description: Total de la factura, con impuestos.
+    TaxTotal:
+      type: object
+      required: [code, label, rate, base, iva]
+      properties:
+        code:
+          type: string
+          description: Código de porcentaje de IVA del SRI.
+        label:
+          type: string
+          description: Como lo nombra el RIDE, p. ej. "IVA 15%" o "no objeto de IVA".
+        rate:
+          type: number
+        base:
+          type: number
+          description: Subtotal gravado con este tipo de IVA.
+        iva:
+          type: number
     DocumentDetail:
       type: object
-      required: [id, product_id, code, description, quantity, unit_price, discount, subtotal, tax_rate, tax_value, total]
+      required: [id, product_id, product_variant_id, code, description, quantity, unit_price, discount, subtotal, tax_rate, tax_value, ice_rate, total]
       properties:
         id:
           type: string
@@ -2014,6 +2272,10 @@ components:
         product_id:
           type: [string, "null"]
           format: uuid
+        product_variant_id:
+          type: [string, "null"]
+          format: uuid
+          description: Variante facturada. Para editar el documento, reenvíala como `product_variant_id`.
         code:
           type: [string, "null"]
         description:
@@ -2031,11 +2293,14 @@ components:
           description: Porcentaje de IVA aplicado.
         tax_value:
           type: number
+        ice_rate:
+          type: [number, "null"]
+          description: Porcentaje de ICE del ítem, o `null` si no grava ICE.
         total:
           type: number
     Invoice:
       type: object
-      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, total_without_taxes, total_discount, total, access_key, authorization_number, error_message, created_at, items]
+      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, payments, total_without_taxes, total_discount, taxes, total_ice, total, access_key, authorization_number, error_message, public_url, pdf_url, created_at, items]
       properties:
         id:
           type: string
@@ -2070,10 +2335,21 @@ components:
               type: [string, "null"]
         payment_method:
           type: string
-          description: Código SRI de forma de pago.
+          description: Código SRI de la forma de pago principal (el primer pago de contado, o el primero si todo es a crédito).
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
         total_without_taxes:
           type: number
         total_discount:
+          type: number
+        taxes:
+          type: array
+          description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+          items:
+            $ref: "#/components/schemas/TaxTotal"
+        total_ice:
           type: number
         total:
           type: number
@@ -2085,6 +2361,14 @@ components:
         error_message:
           type: [string, "null"]
           description: Motivo del rechazo, cuando el estado es `rejected`.
+        public_url:
+          type: [string, "null"]
+          format: uri
+          description: Página pública de la factura para compartir con el cliente. Solo cuando está autorizada.
+        pdf_url:
+          type: [string, "null"]
+          format: uri
+          description: El RIDE en PDF. Solo cuando está autorizada.
         created_at:
           type: string
           format: date-time
@@ -2092,6 +2376,52 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentDetail"
+    Payment:
+      type: object
+      required: [forma_pago, detail_code, amount, plazo, due_date, notes]
+      properties:
+        forma_pago:
+          type: string
+          description: Código SRI de forma de pago.
+        detail_code:
+          type: [string, "null"]
+          description: Detalle interno de la forma de pago (marca de tarjeta, banco), p. ej. `visa_credito`.
+        amount:
+          type: number
+        plazo:
+          type: [integer, "null"]
+          description: Días de crédito. Vacío si se pagó de contado.
+        due_date:
+          type: [string, "null"]
+          format: date
+          description: Fecha de vencimiento de un pago a crédito.
+        notes:
+          type: [string, "null"]
+    PaymentRequest:
+      type: object
+      required: [forma_pago, amount]
+      properties:
+        forma_pago:
+          type: string
+          enum: ["01", "15", "16", "17", "18", "19", "20", "21"]
+          description: Código SRI de forma de pago.
+        detail_code:
+          type: string
+          enum: [amex, visa_credito, mastercard_credito, diners, discover, visa_debito, mastercard_debito, banco_pichincha, banco_guayaquil, produbanco, banco_pacifico, banco_bolivariano, banco_internacional, banco_austro, banco_solidario, banco_promerica, otra_institucion]
+          description: |
+            Detalle opcional de la forma de pago. Debe pertenecer a `forma_pago`:
+
+            - `19` Tarjeta de crédito: `amex`, `visa_credito`, `mastercard_credito`, `diners`, `discover`
+            - `16` Tarjeta de débito: `visa_debito`, `mastercard_debito`
+            - `20` Otros con utilización del sistema financiero: `banco_pichincha`, `banco_guayaquil`, `produbanco`, `banco_pacifico`, `banco_bolivariano`, `banco_internacional`, `banco_austro`, `banco_solidario`, `banco_promerica`, `otra_institucion`
+        amount:
+          type: number
+          description: Monto del pago. Los pagos deben sumar el total de la factura.
+        plazo:
+          type: integer
+          description: Días de crédito. Omítelo para un pago de contado.
+        notes:
+          type: string
     InvoiceEnvelope:
       type: object
       required: [invoice]
@@ -2139,7 +2469,7 @@ components:
       properties:
         invoice:
           type: object
-          required: [contact_id, emission_point_id, items]
+          required: [contact_id, emission_point_id, items, payments]
           properties:
             contact_id:
               type: string
@@ -2148,9 +2478,12 @@ components:
             emission_point_id:
               type: string
               format: uuid
-            payment_method:
-              type: string
-              description: Código SRI de forma de pago (por defecto `20`).
+            payments:
+              type: array
+              minItems: 1
+              description: Formas de pago de la factura, de contado o a crédito.
+              items:
+                $ref: "#/components/schemas/PaymentRequest"
             items:
               type: array
               minItems: 1
@@ -2167,8 +2500,12 @@ components:
             contact_id:
               type: string
               format: uuid
-            payment_method:
-              type: string
+            payments:
+              type: array
+              minItems: 1
+              description: Si se envía, reemplaza todos los pagos actuales.
+              items:
+                $ref: "#/components/schemas/PaymentRequest"
             items:
               type: array
               description: Si se envía, reemplaza todos los ítems actuales.
@@ -2206,7 +2543,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/QuoteSummary"
         - type: object
-          required: [contact, emission_point, notes, invoice_id, total_without_taxes, total_discount, created_at, items]
+          required: [contact, emission_point, notes, invoice_id, public_url, pdf_url, total_without_taxes, total_discount, taxes, total_ice, created_at, items]
           properties:
             contact:
               type: object
@@ -2237,9 +2574,24 @@ components:
               type: [string, "null"]
               format: uuid
               description: La factura en que se convirtió, si ya se convirtió.
+            public_url:
+              type: string
+              format: uri
+              description: Página pública de la cotización para compartir con el cliente.
+            pdf_url:
+              type: string
+              format: uri
+              description: La cotización en PDF.
             total_without_taxes:
               type: number
             total_discount:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
               type: number
             created_at:
               type: string
@@ -2544,7 +2896,7 @@ components:
               type: integer
     ProductSummary:
       type: object
-      required: [id, name, product_type, price_before_tax, iva, iva_rate, track_stock]
+      required: [id, name, product_type, price_before_tax, iva, iva_rate, has_ice, ice_rate, track_stock, default_variant_id, variants]
       properties:
         id:
           type: string
@@ -2566,9 +2918,38 @@ components:
         iva_rate:
           type: number
           description: Porcentaje de IVA aplicado.
+        has_ice:
+          type: boolean
+          description: Si el producto grava ICE.
+        ice_rate:
+          type: [number, "null"]
+          description: Porcentaje de ICE, o `null` si no aplica. Se calcula sobre el subtotal, y el IVA sobre el subtotal más el ICE.
         track_stock:
           type: boolean
           description: Si el producto controla inventario.
+        default_variant_id:
+          type: string
+          format: uuid
+          description: Variante única de un producto sin variantes con nombre. Para facturarlo, envíala como `product_variant_id`.
+        variants:
+          type: array
+          description: Variantes con nombre que se venden (activas). Vacío para un producto de un solo SKU. Para facturar una, envía su `id` como `product_variant_id`.
+          items:
+            type: object
+            required: [id, code, name, price_before_tax]
+            properties:
+              id:
+                type: string
+                format: uuid
+              code:
+                type: string
+              name:
+                type: string
+              price_before_tax:
+                type: number
+              stock_quantity:
+                type: number
+                description: Existencias de la variante, si controla stock.
     Product:
       allOf:
         - $ref: "#/components/schemas/ProductSummary"
@@ -2582,11 +2963,7 @@ components:
               type: [string, "null"]
             unit_of_measurement:
               type: [string, "null"]
-            has_ice:
-              type: boolean
-            ice_rate:
-              type: [number, "null"]
-              description: Porcentaje de ICE, o `null` si no aplica.
+              enum: [unidad, litro, kilogramo, metro, metro_cuadrado, metro_cubico, caja, paquete, botella, lata, null]
             stock:
               type: [object, "null"]
               description: Inventario del producto, o `null` si no controla stock.
@@ -2602,25 +2979,6 @@ components:
                     Estado consolidado de las variantes vendibles, o `null` si
                     ninguna reporta estado (p. ej. un producto que controla stock
                     pero sin variantes vendibles activas).
-            variants:
-              type: array
-              description: Variantes con nombre. Vacío para un producto de un solo SKU.
-              items:
-                type: object
-                required: [id, code, name, price_before_tax]
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  code:
-                    type: string
-                  name:
-                    type: string
-                  price_before_tax:
-                    type: number
-                  stock_quantity:
-                    type: number
-                    description: Existencias de la variante, si controla stock.
             created_at:
               type: string
               format: date-time
@@ -2657,6 +3015,7 @@ components:
               enum: ["0", "5", "8", "12", "15", no_objeto_iva, exento_iva]
             unit_of_measurement:
               type: string
+              enum: [unidad, litro, kilogramo, metro, metro_cuadrado, metro_cubico, caja, paquete, botella, lata]
             price_before_tax:
               type: number
               description: Precio unitario sin impuestos.
@@ -2699,6 +3058,7 @@ components:
               enum: ["0", "5", "8", "12", "15", no_objeto_iva, exento_iva]
             unit_of_measurement:
               type: string
+              enum: [unidad, litro, kilogramo, metro, metro_cuadrado, metro_cubico, caja, paquete, botella, lata]
             price_before_tax:
               type: number
             catalog_ice_tax_id:
@@ -2740,7 +3100,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/OrderSummary"
         - type: object
-          required: [contact, emission_point, notes, ready_to_emit, invoice_id, total_without_taxes, total_discount, created_at, items, collections]
+          required: [contact, emission_point, notes, ready_to_emit, invoice_id, total_without_taxes, total_discount, taxes, total_ice, created_at, items, collections]
           properties:
             contact:
               type: object
@@ -2777,6 +3137,13 @@ components:
             total_without_taxes:
               type: number
             total_discount:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
               type: number
             created_at:
               type: string
@@ -2840,6 +3207,93 @@ components:
               description: Si se envía, reemplaza todos los ítems actuales.
               items:
                 $ref: "#/components/schemas/DocumentDetailRequest"
+    ReceivedDocumentSummary:
+      type: object
+      required: [id, type, number, emission_date, issuer_name, issuer_ruc, total, outstanding_amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [invoice, credit_note, purchase_liquidation]
+        number:
+          type: string
+          description: Número del comprobante, p. ej. `001-001-000000123`.
+        emission_date:
+          type: [string, "null"]
+          format: date
+        issuer_name:
+          type: string
+          description: Razón social del proveedor.
+        issuer_ruc:
+          type: string
+        total:
+          type: number
+        outstanding_amount:
+          type: [number, "null"]
+          description: Lo que aún se le debe al proveedor. `null` en lo que no se paga (notas de crédito, liquidaciones).
+    ReceivedDocument:
+      allOf:
+        - $ref: "#/components/schemas/ReceivedDocumentSummary"
+        - type: object
+          required: [access_key, authorization_number, authorization_date, contact_id, modified_document_number, xml_pending, total_without_taxes, taxes, total_ice, items, disbursements]
+          properties:
+            access_key:
+              type: string
+            authorization_number:
+              type: [string, "null"]
+            authorization_date:
+              type: [string, "null"]
+              format: date-time
+            contact_id:
+              type: [string, "null"]
+              format: uuid
+              description: El proveedor como contacto, si ya existe.
+            modified_document_number:
+              type: [string, "null"]
+              description: El comprobante que modifica una nota de crédito.
+            xml_pending:
+              type: boolean
+              description: Aún no llega el XML autorizado; hasta entonces no hay detalle ni impuestos.
+            total_without_taxes:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
+              type: number
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentDetail"
+            disbursements:
+              type: array
+              description: Pagos hechos al proveedor, del más reciente al más antiguo.
+              items:
+                $ref: "#/components/schemas/Disbursement"
+    Disbursement:
+      type: object
+      required: [id, amount, paid_on, forma_pago, forma_pago_label, notes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        paid_on:
+          type: string
+          format: date
+        forma_pago:
+          type: string
+          description: Código SRI de forma de pago.
+        forma_pago_label:
+          type: string
+          description: Nombre SRI de la forma de pago.
+        notes:
+          type: [string, "null"]
     Collection:
       type: object
       required: [id, amount, collected_on, forma_pago, forma_pago_label, notes]
@@ -2899,8 +3353,20 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    ReceivedDocumentsForbidden:
+      description: Tu rol no permite ver comprobantes recibidos.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     OrdersForbidden:
       description: Tu plan no incluye órdenes (disponibles desde Profesional), o tu rol no permite esta acción.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ReportsForbidden:
+      description: Tu rol no permite ver reportes.
       content:
         application/json:
           schema:
@@ -2923,3 +3389,14 @@ components:
                 type: array
                 items:
                   type: string
+              field_errors:
+                type: object
+                description: |
+                  Los mismos mensajes agrupados por atributo (`razon_social`,
+                  `identificacion`…), para mostrarlos junto a cada campo. Solo
+                  viene cuando el error es de validación de datos; los errores
+                  que no son de un campo concreto llegan bajo `base`.
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
