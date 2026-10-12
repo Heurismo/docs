@@ -46,7 +46,7 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
     2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/facturas/enviar-una-factura-al-sri). Tellen arma el XML, lo firma con tu certificado y te devuelve la autorización con la clave de acceso.
   </Step>
   <Step title="Corrige o anula cuando haga falta">
-    Para dejar sin efecto un comprobante ya autorizado, usa [Anular una factura](/api-reference/facturas/anular-una-factura); para ajustarlo, emite la nota de crédito o débito que corresponda.
+    Para dejar sin efecto un comprobante ya autorizado, usa [Anular una factura](/api-reference/facturas/anular-una-factura); para devolver ítems o reducir su valor, crea una nota de crédito con [Crear una nota de crédito](/api-reference/notas-de-crédito/crear-una-nota-de-crédito) y envíala al SRI con [Enviar una nota de crédito al SRI](/api-reference/notas-de-crédito/enviar-una-nota-de-crédito-al-sri). Para cobrar un valor adicional, como intereses por mora, usa [Crear una nota de débito](/api-reference/notas-de-débito/crear-una-nota-de-débito).
   </Step>
 </Steps>
 

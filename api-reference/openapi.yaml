@@ -56,6 +56,10 @@ tags:
       `initial_stock` se ignora.
   - name: Facturas
     description: Facturas de venta (comprobante electrónico 01).
+  - name: Notas de crédito
+    description: Notas de crédito (comprobante electrónico 04). Cada una acredita una factura autorizada.
+  - name: Notas de débito
+    description: Notas de débito (comprobante electrónico 05). Cada una carga a una factura autorizada, p. ej. intereses por mora o gastos de cobranza.
   - name: Cotizaciones
     description: |
       Cotizaciones (proformas) para tus clientes. No son comprobantes del SRI;
@@ -71,6 +75,12 @@ tags:
       Comprobantes que te emitieron tus proveedores, tal como llegan del SRI.
       Por ahora, los que tienen detalle de productos: facturas, notas de
       crédito y liquidaciones de compra. Siempre son de producción.
+  - name: Reportes
+    description: |
+      Los reportes de la web, con las mismas cifras. Los comprobantes emitidos
+      siguen el ambiente de la cuenta (pruebas o producción); los recibidos del
+      SRI no tienen ambiente. Requieren poder ver reportes
+      (`permissions.read_reports`).
 paths:
   /api/v1/me:
     get:
@@ -1095,6 +1105,15 @@ paths:
       summary: Consultar una factura
       description: Devuelve la factura con sus ítems, cliente y punto de emisión.
       tags: [Facturas]
+      parameters:
+        - name: excluding_credit_note_id
+          in: query
+          description: >-
+            Deja fuera de `creditable_amount` y de `creditable_quantity` una nota
+            de crédito, para editarla partiendo de lo que le dejan las demás.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: La factura.
@@ -1223,6 +1242,649 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{id}/resend_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resendInvoiceEmail
+      summary: Reenviar una factura por correo
+      description: |
+        Reenvía al email del cliente la factura autorizada, con su RIDE en PDF
+        y su XML. El envío ocurre en segundo plano.
+      tags: [Facturas]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/credit_notes:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listCreditNotes
+      summary: Listar notas de crédito
+      description: |
+        Devuelve las notas de crédito de la cuenta en el ambiente activo (pruebas o
+        producción), de la más reciente a la más antigua, con paginación.
+      tags: [Notas de crédito]
+      parameters:
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: invoice_id
+          in: query
+          description: Filtrar por la factura que acreditan.
+          schema:
+            type: string
+            format: uuid
+        - name: contact_id
+          in: query
+          description: Filtrar por cliente.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Notas de crédito emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Notas de crédito emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las notas de crédito de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credit_notes, pagination]
+                properties:
+                  credit_notes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CreditNoteSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createCreditNote
+      summary: Crear una nota de crédito
+      description: |
+        Crea una nota de crédito en borrador que acredita una factura autorizada.
+        Envías la factura, el motivo y qué ítems de la factura se devuelven y
+        cuántos; el precio y el descuento de cada ítem, el cliente y la
+        referencia al documento modificado salen de la factura. No puede pasar
+        de lo que queda por acreditar de la factura (`creditable_amount`), ni
+        devolver más unidades de las facturadas. Para enviarla al SRI, usa luego
+        el endpoint de envío.
+      tags: [Notas de crédito]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditNoteCreateRequest"
+      responses:
+        "201":
+          description: La nota de crédito creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/credit_notes/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de crédito.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getCreditNote
+      summary: Consultar una nota de crédito
+      description: Devuelve la nota de crédito con sus ítems, cliente y punto de emisión.
+      tags: [Notas de crédito]
+      responses:
+        "200":
+          description: La nota de crédito.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateCreditNote
+      summary: Editar una nota de crédito
+      description: |
+        Edita una nota de crédito en borrador o rechazada. Puedes cambiar el
+        motivo y el punto de emisión; si envías `items`, reemplaza todos los
+        ítems actuales. La factura no cambia.
+      tags: [Notas de crédito]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreditNoteUpdateRequest"
+      responses:
+        "200":
+          description: La nota de crédito actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteCreditNote
+      summary: Eliminar una nota de crédito
+      description: Elimina una nota de crédito en borrador. Las notas de crédito ya enviadas al SRI no se pueden eliminar.
+      tags: [Notas de crédito]
+      responses:
+        "204":
+          description: La nota de crédito fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/credit_notes/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de crédito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitCreditNote
+      summary: Enviar una nota de crédito al SRI
+      description: |
+        Encola una nota de crédito en borrador o rechazada para su autorización en el SRI.
+        La cuenta debe tener un certificado de firma activo. El procesamiento
+        ocurre en segundo plano: la nota de crédito pasa a `pending` y luego a
+        `authorized` o `rejected`. Consulta el estado final con `GET` de la
+        nota de crédito.
+      tags: [Notas de crédito]
+      responses:
+        "202":
+          description: La nota de crédito fue encolada para envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/credit_notes/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de crédito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidCreditNote
+      summary: Anular una nota de crédito
+      description: |
+        Anula una nota de crédito autorizada. Solo es posible hasta el día 7 del mes
+        siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
+      tags: [Notas de crédito]
+      responses:
+        "200":
+          description: La nota de crédito anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/credit_notes/{id}/resend_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de crédito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resendCreditNoteEmail
+      summary: Reenviar una nota de crédito por correo
+      description: |
+        Reenvía al email del cliente la nota de crédito autorizada, con su RIDE
+        en PDF y su XML. El envío ocurre en segundo plano.
+      tags: [Notas de crédito]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/debit_notes:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listDebitNotes
+      summary: Listar notas de débito
+      description: |
+        Devuelve las notas de débito de la cuenta en el ambiente activo (pruebas o
+        producción), de la más reciente a la más antigua, con paginación.
+      tags: [Notas de débito]
+      parameters:
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: invoice_id
+          in: query
+          description: Filtrar por la factura a la que cargan.
+          schema:
+            type: string
+            format: uuid
+        - name: contact_id
+          in: query
+          description: Filtrar por cliente.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Notas de débito emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Notas de débito emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las notas de débito de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [debit_notes, pagination]
+                properties:
+                  debit_notes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DebitNoteSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createDebitNote
+      summary: Crear una nota de débito
+      description: |
+        Crea una nota de débito en borrador que carga a una factura autorizada,
+        p. ej. intereses por mora o gastos de cobranza. Envías la factura y los
+        motivos (razón y valor sin IVA); el cliente y la referencia al documento
+        modificado salen de la factura, y la forma de pago y el IVA, si no los
+        envías, también (el IVA más alto de sus ítems). Para enviarla al SRI,
+        usa luego el endpoint de envío.
+      tags: [Notas de débito]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebitNoteCreateRequest"
+      responses:
+        "201":
+          description: La nota de débito creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebitNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/debit_notes/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de débito.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getDebitNote
+      summary: Consultar una nota de débito
+      description: Devuelve la nota de débito con sus motivos, cliente y punto de emisión.
+      tags: [Notas de débito]
+      responses:
+        "200":
+          description: La nota de débito.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebitNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateDebitNote
+      summary: Editar una nota de débito
+      description: |
+        Edita una nota de débito en borrador o rechazada. Puedes cambiar el punto
+        de emisión, la forma de pago y el IVA; si envías `motives`, reemplaza
+        todos los motivos actuales. La factura no cambia.
+      tags: [Notas de débito]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebitNoteUpdateRequest"
+      responses:
+        "200":
+          description: La nota de débito actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebitNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteDebitNote
+      summary: Eliminar una nota de débito
+      description: Elimina una nota de débito en borrador. Las notas de débito ya enviadas al SRI no se pueden eliminar.
+      tags: [Notas de débito]
+      responses:
+        "204":
+          description: La nota de débito fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/debit_notes/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de débito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitDebitNote
+      summary: Enviar una nota de débito al SRI
+      description: |
+        Encola una nota de débito en borrador o rechazada para su autorización en el SRI.
+        La cuenta debe tener un certificado de firma activo. El procesamiento
+        ocurre en segundo plano: la nota de débito pasa a `pending` y luego a
+        `authorized` o `rejected`. Consulta el estado final con `GET` de la
+        nota de débito.
+      tags: [Notas de débito]
+      responses:
+        "202":
+          description: La nota de débito fue encolada para envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/debit_notes/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de débito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidDebitNote
+      summary: Anular una nota de débito
+      description: |
+        Anula una nota de débito autorizada. Solo es posible hasta el día 7 del mes
+        siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
+      tags: [Notas de débito]
+      responses:
+        "200":
+          description: La nota de débito anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/debit_notes/{id}/resend_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la nota de débito.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resendDebitNoteEmail
+      summary: Reenviar una nota de débito por correo
+      description: |
+        Reenvía al email del cliente la nota de débito autorizada, con su RIDE
+        en PDF y su XML. El envío ocurre en segundo plano.
+      tags: [Notas de débito]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1450,6 +2112,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/QuotesForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/quotes/{id}/convert_to_order:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la cotización.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: convertQuoteToOrder
+      summary: Convertir una cotización en orden
+      description: |
+        Crea una orden abierta con el cliente, el punto de emisión (si lo hay)
+        y los ítems de la cotización, que queda como `converted`. Registra
+        abonos en la orden y emítela como factura cuando cubran el total.
+      tags: [Cotizaciones]
+      responses:
+        "201":
+          description: La orden creada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OrdersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/quotes/{id}/send_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la cotización.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: sendQuoteEmail
+      summary: Enviar una cotización por correo
+      description: |
+        Envía la cotización en PDF al email del cliente. El envío ocurre en
+        segundo plano. Una cotización en borrador pasa a `sent`.
+      tags: [Cotizaciones]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1775,7 +2514,7 @@ paths:
     get:
       operationId: listReceivedDocuments
       summary: Listar comprobantes recibidos
-      description: Devuelve las facturas, notas de crédito y liquidaciones de compra recibidas, de la más reciente a la más antigua, con paginación.
+      description: Devuelve los comprobantes recibidos (facturas, notas de crédito y de débito, liquidaciones de compra y retenciones), del más reciente al más antiguo, con paginación.
       tags: [Comprobantes recibidos]
       parameters:
         - name: type
@@ -1783,7 +2522,7 @@ paths:
           description: Filtrar por tipo de comprobante.
           schema:
             type: string
-            enum: [invoice, credit_note, purchase_liquidation]
+            enum: [invoice, credit_note, debit_note, purchase_liquidation, retention]
         - name: outstanding
           in: query
           description: Con `true`, solo lo que aún se le debe al proveedor.
@@ -1858,7 +2597,7 @@ paths:
     get:
       operationId: getReceivedDocument
       summary: Consultar un comprobante recibido
-      description: Devuelve el comprobante con su detalle, sus impuestos y los pagos hechos al proveedor.
+      description: Devuelve el comprobante con su detalle según el tipo (líneas e impuestos, motivos de una nota de débito o lo retenido en una retención) y los pagos hechos al proveedor.
       tags: [Comprobantes recibidos]
       responses:
         "200":
@@ -1877,6 +2616,117 @@ paths:
           $ref: "#/components/responses/ReceivedDocumentsForbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/reports/sales_summary:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getSalesSummaryReport
+      summary: Consultar el reporte de ventas
+      description: |
+        Facturas autorizadas en un rango de fechas: totales frente al período
+        anterior, la serie por día (o por mes en rangos de más de 92 días), y
+        los principales clientes, productos y establecimientos.
+
+        Las ventas son netas: sin IVA ni otros impuestos, que se le deben al
+        SRI. Solo `total` incluye impuestos.
+      tags: [Reportes]
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Primer día del rango, como `AAAA-MM-DD`. Va junto con `to`; sin ambos, el mes en curso.
+          schema:
+            type: string
+            format: date
+            example: "2026-10-01"
+        - name: to
+          in: query
+          required: false
+          description: Último día del rango, como `AAAA-MM-DD`.
+          schema:
+            type: string
+            format: date
+            example: "2026-10-31"
+        - name: store_id
+          in: query
+          required: false
+          description: Solo las ventas de este establecimiento. Sin él, todos.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: El reporte de ventas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sales_summary]
+                properties:
+                  sales_summary:
+                    $ref: "#/components/schemas/SalesSummaryReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReportsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/reports/iva:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getIvaReport
+      summary: Consultar el reporte de IVA
+      description: |
+        El IVA del período para la declaración, mensual o semestral: ventas y
+        compras por tarifa, las retenciones recibidas y emitidas, y si el
+        período deja IVA por pagar o crédito tributario.
+      tags: [Reportes]
+      parameters:
+        - name: period
+          in: query
+          required: false
+          description: |
+            Un mes, como `AAAA-MM`, o un semestre, como `AAAA-S1` (enero a junio)
+            o `AAAA-S2` (julio a diciembre). Por defecto, el mes o el semestre en
+            curso, según la periodicidad de IVA de la cuenta.
+          schema:
+            type: string
+            pattern: "^\\d{4}-(0[1-9]|1[0-2]|S[12])$"
+            example: "2026-S2"
+      responses:
+        "200":
+          description: El reporte de IVA.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [iva]
+                properties:
+                  iva:
+                    $ref: "#/components/schemas/IvaReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReportsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 components:
   securitySchemes:
     bearerAuth:
@@ -1974,7 +2824,7 @@ components:
               description: |
                 Lo que puedes hacer en la cuenta, según su plan y tu rol en ella.
                 Con un token de API todo lo que el plan incluye es `true`.
-              required: [create_invoices, edit_invoices, submit_invoices, void_invoices, create_quotes, convert_quotes, create_orders, emit_orders, record_collections, read_received_documents, manage_contacts, manage_products, read_certificates, read_reports, manage_settings]
+              required: [create_invoices, edit_invoices, submit_invoices, void_invoices, create_credit_notes, edit_credit_notes, submit_credit_notes, void_credit_notes, create_debit_notes, edit_debit_notes, submit_debit_notes, void_debit_notes, create_quotes, convert_quotes, convert_quotes_to_orders, send_quotes, create_orders, emit_orders, record_collections, read_received_documents, manage_contacts, manage_products, read_certificates, read_reports, manage_settings]
               properties:
                 create_invoices:
                   type: boolean
@@ -1987,12 +2837,42 @@ components:
                 void_invoices:
                   type: boolean
                   description: Anular facturas autorizadas.
+                create_credit_notes:
+                  type: boolean
+                  description: Crear notas de crédito.
+                edit_credit_notes:
+                  type: boolean
+                  description: Editar notas de crédito en borrador o rechazadas.
+                submit_credit_notes:
+                  type: boolean
+                  description: Enviar notas de crédito al SRI.
+                void_credit_notes:
+                  type: boolean
+                  description: Anular notas de crédito autorizadas.
+                create_debit_notes:
+                  type: boolean
+                  description: Crear notas de débito.
+                edit_debit_notes:
+                  type: boolean
+                  description: Editar notas de débito en borrador o rechazadas.
+                submit_debit_notes:
+                  type: boolean
+                  description: Enviar notas de débito al SRI.
+                void_debit_notes:
+                  type: boolean
+                  description: Anular notas de débito autorizadas.
                 create_quotes:
                   type: boolean
                   description: Crear cotizaciones (proformas).
                 convert_quotes:
                   type: boolean
                   description: Convertir cotizaciones en factura.
+                convert_quotes_to_orders:
+                  type: boolean
+                  description: Convertir cotizaciones en orden.
+                send_quotes:
+                  type: boolean
+                  description: Enviar cotizaciones por correo al cliente.
                 create_orders:
                   type: boolean
                   description: Crear órdenes con abonos.
@@ -2095,6 +2975,275 @@ components:
             count:
               type: integer
               description: Documentos con saldo pendiente.
+    SalesSummaryReport:
+      type: object
+      required: [from, to, store_id, current, previous, change, series, series_granularity, top_products, top_customers, sales_by_store]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        store_id:
+          type: [string, "null"]
+          format: uuid
+          description: El establecimiento filtrado, o `null` para todos.
+        current:
+          $ref: "#/components/schemas/SalesSummaryTotals"
+        previous:
+          description: El período anterior de igual duración (o el mes, semana o año calendario anterior).
+          $ref: "#/components/schemas/SalesSummaryTotals"
+        change:
+          type: object
+          required: [subtotal_pct]
+          properties:
+            subtotal_pct:
+              type: [number, "null"]
+              description: Variación porcentual de las ventas netas frente al período anterior. `null` si el anterior no tuvo ventas.
+        series:
+          type: array
+          description: Ventas netas por día o por mes, con ceros donde no hubo ventas. Termina hoy si el rango sigue en curso.
+          items:
+            type: object
+            required: [date, subtotal]
+            properties:
+              date:
+                type: string
+                format: date
+                description: El día, o el primer día del mes.
+              subtotal:
+                type: number
+        series_granularity:
+          type: string
+          enum: [day, month]
+        top_products:
+          type: array
+          description: Los 5 productos más vendidos por subtotal.
+          items:
+            type: object
+            required: [id, name, quantity, unit, revenue]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              quantity:
+                type: number
+              unit:
+                type: string
+                description: La unidad para mostrar junto a la cantidad ("unidades", "kg"…).
+              revenue:
+                type: number
+                description: Subtotal vendido, sin impuestos.
+        top_customers:
+          type: array
+          description: Los 5 clientes con más ventas.
+          items:
+            type: object
+            required: [id, name, count, revenue]
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              count:
+                type: integer
+              revenue:
+                type: number
+                description: Ventas netas.
+        sales_by_store:
+          type: array
+          description: Ventas por establecimiento, de mayor a menor.
+          items:
+            type: object
+            required: [id, code, name, count, revenue]
+            properties:
+              id:
+                type: string
+                format: uuid
+              code:
+                type: string
+              name:
+                type: [string, "null"]
+              count:
+                type: integer
+              revenue:
+                type: number
+                description: Ventas netas.
+    SalesSummaryTotals:
+      type: object
+      required: [subtotal, iva, total, count, average_ticket]
+      properties:
+        subtotal:
+          type: number
+          description: Ventas netas, sin impuestos.
+        iva:
+          type: number
+        total:
+          type: number
+          description: Total facturado, con impuestos.
+        count:
+          type: integer
+        average_ticket:
+          type: number
+          description: Ventas netas promedio por factura.
+    IvaReport:
+      type: object
+      required: [period, period_type, ventas, compras, retenciones, summary]
+      properties:
+        period:
+          type: string
+          description: El mes (`AAAA-MM`) o el semestre (`AAAA-S1`, `AAAA-S2`) del reporte.
+          example: "2026-S2"
+        period_type:
+          type: string
+          enum: [mensual, semestral]
+        ventas:
+          type: object
+          required: [facturas, notas_credito, notas_debito]
+          properties:
+            facturas:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            notas_credito:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            notas_debito:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+        compras:
+          type: object
+          required: [facturas, liquidaciones, notas_credito, notas_debito, documents_without_lines]
+          properties:
+            facturas:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            liquidaciones:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            notas_credito:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            notas_debito:
+              type: array
+              items:
+                $ref: "#/components/schemas/IvaReportRow"
+            documents_without_lines:
+              type: object
+              description: |
+                Comprobantes recibidos cuyo detalle aún no está guardado, y que
+                por eso quedan fuera de las filas. Es lo que le falta al reporte.
+              required: [count, total_without_taxes, total_iva]
+              properties:
+                count:
+                  type: integer
+                total_without_taxes:
+                  type: number
+                total_iva:
+                  type: number
+        retenciones:
+          type: object
+          required: [recibidas, emitidas]
+          properties:
+            recibidas:
+              type: array
+              description: Retenciones que te hicieron tus clientes.
+              items:
+                $ref: "#/components/schemas/IvaReportRetentionRow"
+            emitidas:
+              type: array
+              description: Retenciones que hiciste a tus proveedores.
+              items:
+                $ref: "#/components/schemas/IvaReportRetentionRow"
+        summary:
+          type: object
+          required:
+            - iva_ventas_facturas
+            - iva_ventas_notas_credito
+            - iva_ventas_notas_debito
+            - iva_ventas
+            - iva_compras
+            - saldo_iva
+            - iva_retenido_por_clientes
+            - iva_retenido_a_proveedores
+            - credito_tributario
+            - total_a_pagar
+            - position
+          properties:
+            iva_ventas_facturas:
+              type: number
+            iva_ventas_notas_credito:
+              type: number
+            iva_ventas_notas_debito:
+              type: number
+            iva_ventas:
+              type: number
+              description: IVA cobrado, neto de notas de crédito.
+            iva_compras:
+              type: number
+              description: IVA pagado, neto de notas de crédito.
+            saldo_iva:
+              type: number
+              description: IVA cobrado menos IVA pagado.
+            iva_retenido_por_clientes:
+              type: number
+            iva_retenido_a_proveedores:
+              type: number
+            credito_tributario:
+              type: number
+            total_a_pagar:
+              type: number
+              description: IVA por pagar más lo retenido a proveedores.
+            position:
+              type: string
+              enum: [por_pagar, credito_tributario, equilibrado]
+              description: El signo de `saldo_iva`.
+    IvaReportRow:
+      type: object
+      description: Un tipo de IVA en una sección del reporte.
+      required: [impuesto, subtotal_sin_impuestos, descuento_adicional, base_imponible, notas_credito, valor_neto, total_impuesto]
+      properties:
+        impuesto:
+          type: string
+          example: IVA 15%
+        subtotal_sin_impuestos:
+          type: number
+        descuento_adicional:
+          type: number
+        base_imponible:
+          type: number
+        notas_credito:
+          type: number
+        valor_neto:
+          type: number
+        total_impuesto:
+          type: number
+    IvaReportRetentionRow:
+      type: object
+      required: [tax_code, impuesto, codigo, base_imponible, valor_retenido]
+      properties:
+        tax_code:
+          type: string
+          description: Código del impuesto retenido (1 Renta, 2 IVA, 6 ISD).
+        impuesto:
+          type: string
+          example: IVA 30%
+        codigo:
+          type: string
+          description: Código de retención del SRI.
+        base_imponible:
+          type: number
+        valor_retenido:
+          type: number
     Certificate:
       type: object
       required: [id, name, active, expires_at]
@@ -2300,7 +3449,7 @@ components:
           type: number
     Invoice:
       type: object
-      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, payments, total_without_taxes, total_discount, taxes, total_ice, total, access_key, authorization_number, error_message, public_url, pdf_url, created_at, items]
+      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, payments, total_without_taxes, total_discount, taxes, total_ice, total, access_key, authorization_number, error_message, creditable_amount, credit_notes, debit_notes, public_url, pdf_url, created_at, items]
       properties:
         id:
           type: string
@@ -2324,15 +3473,7 @@ components:
             identificacion:
               type: [string, "null"]
         emission_point:
-          type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-            code:
-              type: [string, "null"]
-            store_code:
-              type: [string, "null"]
+          $ref: "#/components/schemas/EmissionPointReference"
         payment_method:
           type: string
           description: Código SRI de la forma de pago principal (el primer pago de contado, o el primero si todo es a crédito).
@@ -2361,6 +3502,19 @@ components:
         error_message:
           type: [string, "null"]
           description: Motivo del rechazo, cuando el estado es `rejected`.
+        creditable_amount:
+          type: number
+          description: Lo que queda por acreditar con notas de crédito; las anuladas no cuentan.
+        credit_notes:
+          type: array
+          description: Las notas de crédito que acreditan la factura.
+          items:
+            $ref: "#/components/schemas/CreditNoteSummary"
+        debit_notes:
+          type: array
+          description: Las notas de débito que cargan a la factura.
+          items:
+            $ref: "#/components/schemas/DebitNoteSummary"
         public_url:
           type: [string, "null"]
           format: uri
@@ -2375,7 +3529,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/DocumentDetail"
+            $ref: "#/components/schemas/InvoiceItem"
     Payment:
       type: object
       required: [forma_pago, detail_code, amount, plazo, due_date, notes]
@@ -2422,12 +3576,29 @@ components:
           description: Días de crédito. Omítelo para un pago de contado.
         notes:
           type: string
+    InvoiceItem:
+      allOf:
+        - $ref: "#/components/schemas/DocumentDetail"
+        - type: object
+          required: [creditable_quantity]
+          properties:
+            creditable_quantity:
+              type: number
+              description: Cuánto de esta línea aún pueden devolver notas de crédito; las anuladas no cuentan.
     InvoiceEnvelope:
       type: object
       required: [invoice]
       properties:
         invoice:
           $ref: "#/components/schemas/Invoice"
+    EmailDelivery:
+      type: object
+      description: El email del cliente al que se envía el documento.
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
     DocumentStatus:
       type: object
       description: Identificador y estado de un documento tras una acción de ciclo de vida (envío, anulación). Consulta el recurso completo con `GET`.
@@ -2511,6 +3682,324 @@ components:
               description: Si se envía, reemplaza todos los ítems actuales.
               items:
                 $ref: "#/components/schemas/DocumentDetailRequest"
+    CreditNoteSummary:
+      type: object
+      required: [id, status, sequential, emission_date, contact_name, invoice_id, invoice_sequential, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Número completo, p. ej. `001-001-000000021`.
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+        invoice_id:
+          type: string
+          format: uuid
+          description: La factura que acredita.
+        invoice_sequential:
+          type: string
+          description: Número de la factura que acredita.
+        total:
+          type: number
+    CreditNote:
+      allOf:
+        - $ref: "#/components/schemas/CreditNoteSummary"
+        - type: object
+          required: [contact, emission_point, reason, invoice_emission_date, total_without_taxes, total_discount, taxes, total_ice, access_key, authorization_number, error_message, public_url, pdf_url, created_at, items]
+          properties:
+            contact:
+              type: object
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: [string, "null"]
+                identificacion:
+                  type: [string, "null"]
+            emission_point:
+              $ref: "#/components/schemas/EmissionPointReference"
+            reason:
+              type: string
+              description: Motivo de la nota de crédito.
+            invoice_emission_date:
+              type: [string, "null"]
+              format: date
+            total_without_taxes:
+              type: number
+            total_discount:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
+              type: number
+            access_key:
+              type: [string, "null"]
+            authorization_number:
+              type: [string, "null"]
+            error_message:
+              type: [string, "null"]
+              description: Motivo del rechazo, cuando el estado es `rejected`.
+            public_url:
+              type: [string, "null"]
+              format: uri
+              description: Página pública para compartir con el cliente. Solo cuando está autorizada.
+            pdf_url:
+              type: [string, "null"]
+              format: uri
+              description: El RIDE en PDF. Solo cuando está autorizada.
+            created_at:
+              type: string
+              format: date-time
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentDetail"
+    CreditNoteEnvelope:
+      type: object
+      required: [credit_note]
+      properties:
+        credit_note:
+          $ref: "#/components/schemas/CreditNote"
+    CreditNoteCreateRequest:
+      type: object
+      required: [credit_note]
+      properties:
+        credit_note:
+          type: object
+          required: [invoice_id, reason, items]
+          properties:
+            invoice_id:
+              type: string
+              format: uuid
+              description: La factura autorizada que acredita.
+            reason:
+              type: string
+              description: Motivo, p. ej. "Devolución".
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Por defecto, el punto de emisión de la factura.
+            items:
+              type: array
+              minItems: 1
+              description: Ítems de la factura que se devuelven; el precio y el descuento salen de la factura.
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    CreditNoteUpdateRequest:
+      type: object
+      required: [credit_note]
+      properties:
+        credit_note:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            reason:
+              type: string
+            emission_point_id:
+              type: string
+              format: uuid
+            items:
+              type: array
+              description: Si se envía, reemplaza todos los ítems actuales.
+              items:
+                $ref: "#/components/schemas/DocumentDetailRequest"
+    DebitNoteSummary:
+      type: object
+      required: [id, status, sequential, emission_date, contact_name, invoice_id, invoice_sequential, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Número completo, p. ej. `001-001-000000021`.
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+        invoice_id:
+          type: string
+          format: uuid
+          description: La factura a la que carga.
+        invoice_sequential:
+          type: string
+          description: Número del documento que modifica.
+        total:
+          type: number
+    DebitNoteMotive:
+      type: object
+      required: [id, reason, value]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          description: Razón del cargo, p. ej. "Intereses por mora".
+        value:
+          type: number
+          description: Valor sin IVA.
+    DebitNoteMotiveRequest:
+      type: object
+      required: [reason, value]
+      properties:
+        reason:
+          type: string
+          description: Razón del cargo, p. ej. "Intereses por mora".
+        value:
+          type: number
+          exclusiveMinimum: 0
+          description: Valor sin IVA.
+    DebitNote:
+      allOf:
+        - $ref: "#/components/schemas/DebitNoteSummary"
+        - type: object
+          required: [contact, emission_point, invoice_emission_date, payment_method, tax_percentage_code, total_without_taxes, taxes, access_key, authorization_number, error_message, public_url, pdf_url, created_at, motives]
+          properties:
+            contact:
+              type: object
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: [string, "null"]
+                identificacion:
+                  type: [string, "null"]
+            emission_point:
+              $ref: "#/components/schemas/EmissionPointReference"
+            invoice_emission_date:
+              type: [string, "null"]
+              format: date
+            payment_method:
+              type: string
+              description: Código de forma de pago del SRI (tabla 24).
+            tax_percentage_code:
+              type: string
+              description: Código de porcentaje de IVA del SRI que se aplica a todos los motivos, p. ej. `4` para IVA 15%.
+            total_without_taxes:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            access_key:
+              type: [string, "null"]
+            authorization_number:
+              type: [string, "null"]
+            error_message:
+              type: [string, "null"]
+              description: Motivo del rechazo, cuando el estado es `rejected`.
+            public_url:
+              type: [string, "null"]
+              format: uri
+              description: Página pública para compartir con el cliente. Solo cuando está autorizada.
+            pdf_url:
+              type: [string, "null"]
+              format: uri
+              description: El RIDE en PDF. Solo cuando está autorizada.
+            created_at:
+              type: string
+              format: date-time
+            motives:
+              type: array
+              items:
+                $ref: "#/components/schemas/DebitNoteMotive"
+    DebitNoteEnvelope:
+      type: object
+      required: [debit_note]
+      properties:
+        debit_note:
+          $ref: "#/components/schemas/DebitNote"
+    DebitNoteCreateRequest:
+      type: object
+      required: [debit_note]
+      properties:
+        debit_note:
+          type: object
+          required: [invoice_id, motives]
+          properties:
+            invoice_id:
+              type: string
+              format: uuid
+              description: La factura autorizada a la que carga.
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Por defecto, el punto de emisión de la factura.
+            payment_method:
+              type: string
+              description: Código de forma de pago del SRI. Por defecto, el de la factura.
+            tax_percentage_code:
+              type: string
+              enum: ["0", "2", "3", "4", "5", "6", "7", "8"]
+              description: Código de porcentaje de IVA del SRI. Por defecto, el IVA más alto de los ítems de la factura.
+            motives:
+              type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/DebitNoteMotiveRequest"
+    DebitNoteUpdateRequest:
+      type: object
+      required: [debit_note]
+      properties:
+        debit_note:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            emission_point_id:
+              type: string
+              format: uuid
+            payment_method:
+              type: string
+            tax_percentage_code:
+              type: string
+              enum: ["0", "2", "3", "4", "5", "6", "7", "8"]
+            motives:
+              type: array
+              minItems: 1
+              description: Si se envía, reemplaza todos los motivos actuales.
+              items:
+                $ref: "#/components/schemas/DebitNoteMotiveRequest"
+    EmissionPointReference:
+      type: object
+      description: El punto de emisión de un documento, con los códigos del SRI y los nombres para mostrar.
+      required: [id, code, description, store_code, store_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Código del punto de emisión, p. ej. `001`.
+        description:
+          type: [string, "null"]
+          description: Nombre del punto de emisión, p. ej. "Caja 1".
+        store_code:
+          type: [string, "null"]
+          description: Código del establecimiento, p. ej. `002`.
+        store_name:
+          type: [string, "null"]
+          description: Nombre del establecimiento.
     QuoteSummary:
       type: object
       required: [id, number, status, expired, emission_date, expires_at, contact_name, total]
@@ -2557,17 +4046,10 @@ components:
                 identificacion:
                   type: string
             emission_point:
-              type: [object, "null"]
               description: Punto de emisión con el que se facturará; necesario para convertirla.
-              required: [id, code, store_code]
-              properties:
-                id:
-                  type: string
-                  format: uuid
-                code:
-                  type: string
-                store_code:
-                  type: [string, "null"]
+              anyOf:
+                - $ref: "#/components/schemas/EmissionPointReference"
+                - type: "null"
             notes:
               type: [string, "null"]
             invoice_id:
@@ -3114,17 +4596,10 @@ components:
                 identificacion:
                   type: string
             emission_point:
-              type: [object, "null"]
               description: Punto de emisión con el que se facturará; necesario para emitirlo.
-              required: [id, code, store_code]
-              properties:
-                id:
-                  type: string
-                  format: uuid
-                code:
-                  type: string
-                store_code:
-                  type: [string, "null"]
+              anyOf:
+                - $ref: "#/components/schemas/EmissionPointReference"
+                - type: "null"
             notes:
               type: [string, "null"]
             ready_to_emit:
@@ -3216,7 +4691,7 @@ components:
           format: uuid
         type:
           type: string
-          enum: [invoice, credit_note, purchase_liquidation]
+          enum: [invoice, credit_note, debit_note, purchase_liquidation, retention]
         number:
           type: string
           description: Número del comprobante, p. ej. `001-001-000000123`.
@@ -3232,12 +4707,26 @@ components:
           type: number
         outstanding_amount:
           type: [number, "null"]
-          description: Lo que aún se le debe al proveedor. `null` en lo que no se paga (notas de crédito, liquidaciones).
+          description: Lo que aún se le debe al proveedor. `null` en lo que no se paga (notas de crédito, liquidaciones, retenciones).
     ReceivedDocument:
+      description: El comprobante según su tipo. Todos comparten los datos del sobre (`ReceivedDocumentEnvelope`).
+      oneOf:
+        - $ref: "#/components/schemas/ReceivedLinesDocument"
+        - $ref: "#/components/schemas/ReceivedRetention"
+        - $ref: "#/components/schemas/ReceivedDebitNote"
+      discriminator:
+        propertyName: type
+        mapping:
+          invoice: "#/components/schemas/ReceivedLinesDocument"
+          credit_note: "#/components/schemas/ReceivedLinesDocument"
+          purchase_liquidation: "#/components/schemas/ReceivedLinesDocument"
+          retention: "#/components/schemas/ReceivedRetention"
+          debit_note: "#/components/schemas/ReceivedDebitNote"
+    ReceivedDocumentEnvelope:
       allOf:
         - $ref: "#/components/schemas/ReceivedDocumentSummary"
         - type: object
-          required: [access_key, authorization_number, authorization_date, contact_id, modified_document_number, xml_pending, total_without_taxes, taxes, total_ice, items, disbursements]
+          required: [access_key, authorization_number, authorization_date, contact_id, modified_document_number, xml_pending, disbursements]
           properties:
             access_key:
               type: string
@@ -3249,13 +4738,28 @@ components:
             contact_id:
               type: [string, "null"]
               format: uuid
-              description: El proveedor como contacto, si ya existe.
+              description: El emisor como contacto, si ya existe.
             modified_document_number:
               type: [string, "null"]
-              description: El comprobante que modifica una nota de crédito.
+              description: El comprobante que modifica una nota de crédito o de débito.
             xml_pending:
               type: boolean
               description: Aún no llega el XML autorizado; hasta entonces no hay detalle ni impuestos.
+            disbursements:
+              type: array
+              description: Pagos hechos al proveedor, del más reciente al más antiguo.
+              items:
+                $ref: "#/components/schemas/Disbursement"
+    ReceivedLinesDocument:
+      description: Factura, nota de crédito o liquidación de compra recibida.
+      allOf:
+        - $ref: "#/components/schemas/ReceivedDocumentEnvelope"
+        - type: object
+          required: [type, total_without_taxes, taxes, total_ice, items]
+          properties:
+            type:
+              type: string
+              enum: [invoice, credit_note, purchase_liquidation]
             total_without_taxes:
               type: number
             taxes:
@@ -3269,11 +4773,89 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/DocumentDetail"
-            disbursements:
+    ReceivedDebitNote:
+      description: Nota de débito recibida. `modified_document_number` es el comprobante al que se refiere.
+      allOf:
+        - $ref: "#/components/schemas/ReceivedDocumentEnvelope"
+        - type: object
+          required: [type, total_without_taxes, taxes, total_ice, motives]
+          properties:
+            type:
+              type: string
+              enum: [debit_note]
+            total_without_taxes:
+              type: number
+            taxes:
               type: array
-              description: Pagos hechos al proveedor, del más reciente al más antiguo.
+              description: Base e IVA por tipo de IVA.
               items:
-                $ref: "#/components/schemas/Disbursement"
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
+              type: number
+            motives:
+              type: array
+              items:
+                $ref: "#/components/schemas/DebitNoteMotive"
+    ReceivedRetention:
+      description: Comprobante de retención recibido. El emisor es el cliente que nos retuvo; `total` es lo retenido.
+      allOf:
+        - $ref: "#/components/schemas/ReceivedDocumentEnvelope"
+        - type: object
+          required: [type, withholdings, documents]
+          properties:
+            type:
+              type: string
+              enum: [retention]
+            withholdings:
+              type: array
+              description: Cada impuesto retenido.
+              items:
+                type: object
+                required: [tax_code, tax_label, percentage_code, percentage, base, withheld_value, document_number]
+                properties:
+                  tax_code:
+                    type: string
+                    description: Código de impuesto del SRI (1 renta, 2 IVA, 6 ISD).
+                  tax_label:
+                    type: string
+                    description: p. ej. "RENTA" o "IVA".
+                  percentage_code:
+                    type: string
+                    description: Código de retención del SRI, p. ej. `303`.
+                  percentage:
+                    type: number
+                  base:
+                    type: number
+                  withheld_value:
+                    type: number
+                  document_number:
+                    type: [string, "null"]
+                    description: El comprobante sobre el que se retuvo, si lo indica.
+            documents:
+              type: array
+              description: Los comprobantes sobre los que se retuvo.
+              items:
+                type: object
+                required: [code, name, number, emission_date, invoice_id, withheld_value]
+                properties:
+                  code:
+                    type: string
+                    description: Código SRI del tipo de comprobante, p. ej. `01` factura.
+                  name:
+                    type: string
+                    description: p. ej. "FACTURA".
+                  number:
+                    type: string
+                  emission_date:
+                    type: [string, "null"]
+                    format: date
+                  invoice_id:
+                    type: [string, "null"]
+                    format: uuid
+                    description: Nuestra factura con ese número, si la emitimos en producción.
+                  withheld_value:
+                    type: number
+                    description: Lo retenido sobre este comprobante.
     Disbursement:
       type: object
       required: [id, amount, paid_on, forma_pago, forma_pago_label, notes]
