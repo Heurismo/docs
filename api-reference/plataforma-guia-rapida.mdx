@@ -551,8 +551,13 @@ Recuerda además el patrón asíncrono del envío al SRI: un `202` significa "en
 Los listados devuelven el recurso más un objeto `pagination` (`page`, `total_pages`, `total_count`) y aceptan `?page=` (25 por página). Algunos aceptan filtros:
 
 - **Facturas**: `status`, `contact_id`, `emission_date_from`, `emission_date_to`.
+- **Notas de crédito**: `status`, `invoice_id`, `contact_id`, `emission_date_from`, `emission_date_to`.
+- **Notas de débito**: `status`, `invoice_id`, `contact_id`, `emission_date_from`, `emission_date_to`.
+- **Cotizaciones y órdenes**: `status`, `contact_id`, `query`, `emission_date_from`, `emission_date_to`.
+- **Comprobantes recibidos**: `type`, `outstanding`, `contact_id`, `query`, `authorization_date_from`, `authorization_date_to`.
 - **Contactos**: `query`, `contact_type`.
-- **Puntos de emisión**: `store_id`.
+- **Productos**: `query`, `product_type`, `ids[]`.
+- **Puntos de emisión**: `store_id`, `first_id`.
 
 ## Siguiente paso
 
