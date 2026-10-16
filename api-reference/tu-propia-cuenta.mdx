@@ -36,7 +36,7 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
   <Step title="Registra tus contactos y productos">
     Antes de facturar, carga los datos que vas a reutilizar:
 
-    - Tus **clientes y proveedores**, con [Crear un contacto](/api-reference/contactos/crear-un-contacto).
+    - Tus **clientes y proveedores**, con [Crear un contacto](/api-reference/contactos/crear-un-contacto). Con [Buscar un contacto en el SRI](/api-reference/contactos/buscar-un-contacto-en-el-sri) traes su nombre a partir de la cédula o el RUC.
     - Tus **productos y servicios**, con los endpoints de productos.
   </Step>
   <Step title="Emite tus comprobantes">
@@ -44,6 +44,8 @@ Este es el caso más común: usar la API para operar tu propia cuenta. Cada soli
 
     1. **Créala** con [Crear una factura](/api-reference/facturas/crear-una-factura). Queda guardada en tu cuenta, pero todavía no tiene efecto tributario.
     2. **Envíala al SRI** con [Enviar una factura al SRI](/api-reference/facturas/enviar-una-factura-al-sri). Tellen arma el XML, lo firma con tu certificado y te devuelve la autorización con la clave de acceso.
+
+    Las liquidaciones de compra, las retenciones y las guías de remisión siguen el mismo flujo: créalas y luego envíalas al SRI.
   </Step>
   <Step title="Corrige o anula cuando haga falta">
     Para dejar sin efecto un comprobante ya autorizado, usa [Anular una factura](/api-reference/facturas/anular-una-factura); para devolver ítems o reducir su valor, crea una nota de crédito con [Crear una nota de crédito](/api-reference/notas-de-crédito/crear-una-nota-de-crédito) y envíala al SRI con [Enviar una nota de crédito al SRI](/api-reference/notas-de-crédito/enviar-una-nota-de-crédito-al-sri). Para cobrar un valor adicional, como intereses por mora, usa [Crear una nota de débito](/api-reference/notas-de-débito/crear-una-nota-de-débito).

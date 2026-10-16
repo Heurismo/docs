@@ -60,6 +60,14 @@ tags:
     description: Notas de crédito (comprobante electrónico 04). Cada una acredita una factura autorizada.
   - name: Notas de débito
     description: Notas de débito (comprobante electrónico 05). Cada una carga a una factura autorizada, p. ej. intereses por mora o gastos de cobranza.
+  - name: Liquidaciones de compra
+    description: Liquidaciones de compra (comprobante electrónico 03). Lo que la cuenta compra a un proveedor que no puede emitir factura; al autorizarse, lo comprado entra al stock.
+  - name: Retenciones
+    description: Comprobantes de retención (comprobante electrónico 07) que emites a un proveedor sobre su factura, nota de débito o tu liquidación de compra.
+  - name: Guías de remisión
+    description: Guías de remisión (comprobante electrónico 06). Cada una acompaña el traslado de lo vendido en una factura autorizada.
+  - name: Transportistas
+    description: Quién transporta la mercadería de una guía de remisión, con su placa por defecto.
   - name: Cotizaciones
     description: |
       Cotizaciones (proformas) para tus clientes. No son comprobantes del SRI;
@@ -75,6 +83,13 @@ tags:
       Comprobantes que te emitieron tus proveedores, tal como llegan del SRI.
       Por ahora, los que tienen detalle de productos: facturas, notas de
       crédito y liquidaciones de compra. Siempre son de producción.
+  - name: Usuarios
+    description: |
+      Las personas de la cuenta, sus roles y las invitaciones pendientes. Las
+      mismas reglas que en la web: solo un propietario asigna el rol de
+      propietario, la cuenta nunca se queda sin propietario y el plan limita
+      cuántos usuarios puede tener. Requieren poder administrar usuarios
+      (`permissions.manage_users`).
   - name: Reportes
     description: |
       Los reportes de la web, con las mismas cifras. Los comprobantes emitidos
@@ -467,6 +482,133 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/contacts/sri_lookup:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: lookupContactInSri
+      summary: Buscar un contacto en el SRI
+      description: |
+        Consulta el catastro público del SRI por RUC o cédula para prellenar un
+        contacto nuevo. No guarda nada: el contacto se crea con `POST contacts`.
+
+        Un RUC trae razón social, nombre comercial, dirección, tipo de contribuyente
+        y si es contribuyente especial. Una cédula trae solo el nombre de la persona y, si
+        tiene RUC, la dirección de ese RUC. La dirección llega
+        solo hasta la parroquia (provincia, cantón, parroquia), sin la calle.
+
+        Antes de consultar al SRI, la API valida el número y revisa la cuenta: el
+        RUC de la propia cuenta responde `422`, y un contacto ya registrado con esa
+        identificación responde `409` con ese contacto.
+      tags: [Contactos]
+      parameters:
+        - name: identificacion
+          in: query
+          required: true
+          description: Cédula (10 dígitos) o RUC (13 dígitos).
+          schema:
+            type: string
+        - name: except
+          in: query
+          description: Identificador de un contacto que no cuenta como ya registrado; úsalo al editar ese contacto.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Los datos del SRI para el contacto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contact, warning]
+                properties:
+                  contact:
+                    type: object
+                    description: Solo los campos que el SRI respondió.
+                    required: [tipo_identificacion, identificacion, razon_social, tipo_contribuyente]
+                    properties:
+                      tipo_identificacion:
+                        type: string
+                        enum: [cedula, ruc]
+                      identificacion:
+                        type: string
+                      razon_social:
+                        type: string
+                      nombre_comercial:
+                        type: string
+                      address:
+                        type: string
+                        description: Provincia, cantón y parroquia, separados por comas.
+                      tipo_contribuyente:
+                        type: string
+                        enum: [persona_natural, persona_juridica]
+                      contribuyente_special:
+                        type: boolean
+                        description: Solo para RUC.
+                  warning:
+                    type: [string, "null"]
+                    description: Aviso cuando el RUC no está activo en el SRI, por ejemplo "Este RUC está suspendido en el SRI.".
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: La cuenta no existe, o el SRI no tiene registrada esa identificación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        "409":
+          description: Ya hay un contacto con esa identificación en la cuenta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors, contact]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                  contact:
+                    $ref: "#/components/schemas/ContactSummary"
+        "422":
+          description: El número no es una cédula ni un RUC válido, o es el RUC de la propia cuenta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        "502":
+          description: El SRI no respondió.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [errors]
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: string
   /api/v1/accounts/{account_id}/contacts/{id}:
     parameters:
       - name: account_id
@@ -1003,12 +1145,22 @@ paths:
         producción), de la más reciente a la más antigua, con paginación.
       tags: [Facturas]
       parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso o autorización, o por nombre o identificación del cliente.
+          schema:
+            type: string
         - name: status
           in: query
           description: Filtrar por estado.
           schema:
             type: string
             enum: [draft, pending, authorized, rejected, cancelled]
+        - name: creditable
+          in: query
+          description: Con `true`, solo las facturas autorizadas a las que aún les queda valor por acreditar con una nota de crédito. Sin conteo, `pagination.total_count` llega en `null` y `total_pages` dice solo si hay una página más.
+          schema:
+            type: boolean
         - name: contact_id
           in: query
           description: Filtrar por cliente.
@@ -1054,6 +1206,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
     post:
       operationId: createInvoice
       summary: Crear una factura
@@ -1305,6 +1459,11 @@ paths:
         producción), de la más reciente a la más antigua, con paginación.
       tags: [Notas de crédito]
       parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso, autorización o documento modificado, o por nombre o identificación del cliente.
+          schema:
+            type: string
         - name: status
           in: query
           description: Filtrar por estado.
@@ -1608,6 +1767,11 @@ paths:
         producción), de la más reciente a la más antigua, con paginación.
       tags: [Notas de débito]
       parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso, autorización o documento modificado, o por nombre o identificación del cliente.
+          schema:
+            type: string
         - name: status
           in: query
           description: Filtrar por estado.
@@ -1893,6 +2057,1072 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/purchase_liquidations:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listPurchaseLiquidations
+      summary: Listar liquidaciones de compra
+      description: |
+        Devuelve las liquidaciones de compra de la cuenta en el ambiente activo
+        (pruebas o producción), de la más reciente a la más antigua, con paginación.
+      tags: [Liquidaciones de compra]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso o autorización, o por nombre o identificación del proveedor.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: contact_id
+          in: query
+          description: Filtrar por proveedor.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Liquidaciones emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Liquidaciones emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las liquidaciones de compra de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [purchase_liquidations, pagination]
+                properties:
+                  purchase_liquidations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PurchaseLiquidationSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createPurchaseLiquidation
+      summary: Crear una liquidación de compra
+      description: |
+        Crea una liquidación de compra en borrador a un proveedor, con lo
+        comprado y el precio pagado. Cada ítem es un producto del catálogo (sus
+        impuestos se derivan del producto) o una línea escrita a mano con su
+        código, descripción e IVA. La forma de pago es `20` (otros con
+        utilización del sistema financiero). Para enviarla al SRI, usa luego el
+        endpoint de envío.
+      tags: [Liquidaciones de compra]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseLiquidationCreateRequest"
+      responses:
+        "201":
+          description: La liquidación de compra creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseLiquidationEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/purchase_liquidations/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la liquidación de compra.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPurchaseLiquidation
+      summary: Consultar una liquidación de compra
+      description: Devuelve la liquidación de compra con sus ítems, proveedor y punto de emisión.
+      tags: [Liquidaciones de compra]
+      responses:
+        "200":
+          description: La liquidación de compra.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseLiquidationEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updatePurchaseLiquidation
+      summary: Editar una liquidación de compra
+      description: |
+        Edita una liquidación de compra en borrador o rechazada. Puedes cambiar el
+        proveedor y el punto de emisión; si envías `items`, reemplaza todos los
+        ítems actuales.
+      tags: [Liquidaciones de compra]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseLiquidationUpdateRequest"
+      responses:
+        "200":
+          description: La liquidación de compra actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseLiquidationEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deletePurchaseLiquidation
+      summary: Eliminar una liquidación de compra
+      description: Elimina una liquidación de compra en borrador. Las ya enviadas al SRI no se pueden eliminar.
+      tags: [Liquidaciones de compra]
+      responses:
+        "204":
+          description: La liquidación de compra fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/purchase_liquidations/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la liquidación de compra.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitPurchaseLiquidation
+      summary: Enviar una liquidación de compra al SRI
+      description: |
+        Encola una liquidación de compra en borrador o rechazada para su
+        autorización en el SRI. La cuenta debe tener un certificado de firma
+        activo. El procesamiento ocurre en segundo plano: pasa a `pending` y
+        luego a `authorized` o `rejected`. Consulta el estado final con `GET`.
+        Al autorizarse, lo comprado entra al stock.
+      tags: [Liquidaciones de compra]
+      responses:
+        "202":
+          description: La liquidación de compra fue encolada para envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/purchase_liquidations/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la liquidación de compra.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidPurchaseLiquidation
+      summary: Anular una liquidación de compra
+      description: |
+        Anula una liquidación de compra autorizada y saca del stock lo que había
+        entrado. Solo es posible hasta el día 7 del mes siguiente a la emisión.
+        Recuerda anular también el comprobante en el SRI.
+      tags: [Liquidaciones de compra]
+      responses:
+        "200":
+          description: La liquidación de compra anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/purchase_liquidations/{id}/resend_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la liquidación de compra.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resendPurchaseLiquidationEmail
+      summary: Reenviar una liquidación de compra por correo
+      description: |
+        Reenvía al email del proveedor la liquidación de compra autorizada, con
+        su RIDE en PDF y su XML. El envío ocurre en segundo plano.
+      tags: [Liquidaciones de compra]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retentions:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta. Usa el de tu propia cuenta o el de una cuenta que administras.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listRetentions
+      summary: Listar retenciones
+      description: |
+        Devuelve los comprobantes de retención de la cuenta en el ambiente activo
+        (pruebas o producción), del más reciente al más antiguo, con paginación.
+      tags: [Retenciones]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso, autorización o período fiscal, o por nombre o identificación del proveedor.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: contact_id
+          in: query
+          description: Filtrar por proveedor.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Retenciones emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Retenciones emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las retenciones de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [retentions, pagination]
+                properties:
+                  retentions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RetentionSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createRetention
+      summary: Crear una retención
+      description: |
+        Crea una retención en borrador sobre uno o más documentos de sustento del
+        mismo proveedor. Nombras cada documento por su origen (`source_type` y
+        `source_id`): una factura o nota de débito recibida o una liquidación de
+        compra autorizada. El proveedor, el número, la
+        autorización y los impuestos salen del documento; tú eliges los códigos
+        de retención (`GET retention_codes`) y, si quieres, su base. Un
+        comprobante admite una sola retención vigente: si ya tiene una que no
+        está anulada, la creación falla. Para enviarla al SRI, usa luego el
+        endpoint de envío.
+      tags: [Retenciones]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetentionWriteRequest"
+      responses:
+        "201":
+          description: La retención creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retentions/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la retención.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getRetention
+      summary: Consultar una retención
+      description: Devuelve la retención con su proveedor, punto de emisión y lo que retiene en cada documento de sustento.
+      tags: [Retenciones]
+      responses:
+        "200":
+          description: La retención.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateRetention
+      summary: Editar una retención
+      description: |
+        Edita una retención en borrador o rechazada. Puedes cambiar el punto de
+        emisión y el período fiscal; si envías `documents`, reemplaza todos los
+        documentos de sustento y sus códigos.
+      tags: [Retenciones]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetentionWriteRequest"
+      responses:
+        "200":
+          description: La retención actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetentionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteRetention
+      summary: Eliminar una retención
+      description: Elimina una retención en borrador. Las retenciones ya enviadas al SRI no se pueden eliminar.
+      tags: [Retenciones]
+      responses:
+        "204":
+          description: La retención fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retentions/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la retención.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitRetention
+      summary: Enviar una retención al SRI
+      description: |
+        Encola una retención en borrador o rechazada para su autorización en el
+        SRI. La cuenta debe tener un certificado de firma activo. El
+        procesamiento ocurre en segundo plano: la retención pasa a `pending` y
+        luego a `authorized` o `rejected`. Consulta el estado final con `GET` de
+        la retención.
+      tags: [Retenciones]
+      responses:
+        "202":
+          description: La retención fue encolada para envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retentions/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la retención.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidRetention
+      summary: Anular una retención
+      description: |
+        Anula una retención autorizada. Solo es posible hasta el día 7 del mes
+        siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
+      tags: [Retenciones]
+      responses:
+        "200":
+          description: La retención anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retentions/{id}/resend_email:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la retención.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: resendRetentionEmail
+      summary: Reenviar una retención por correo
+      description: |
+        Reenvía al email del proveedor la retención autorizada, con su RIDE en
+        PDF y su XML. El envío ocurre en segundo plano.
+      tags: [Retenciones]
+      responses:
+        "202":
+          description: El correo quedó en cola.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailDelivery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/retention_codes:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listRetentionCodes
+      summary: Listar códigos de retención
+      description: |
+        Los códigos de retención del SRI (renta, IVA e ISD) con su porcentaje,
+        los mismos que ofrece el formulario web. Úsalos en `items` al crear o
+        editar una retención.
+      tags: [Retenciones]
+      responses:
+        "200":
+          description: Los códigos activos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [retention_codes]
+                properties:
+                  retention_codes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RetentionCode"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/guia_remisions:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listGuiaRemisions
+      summary: Listar guías de remisión
+      description: |
+        Devuelve las guías de remisión de la cuenta en el ambiente activo (pruebas
+        o producción), de la más reciente a la más antigua, con paginación.
+      tags: [Guías de remisión]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por número, clave de acceso, autorización, documento de sustento o placa, o por nombre o identificación del destinatario.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filtrar por estado.
+          schema:
+            type: string
+            enum: [draft, pending, authorized, rejected, cancelled]
+        - name: invoice_id
+          in: query
+          description: Filtrar por la factura que sustentan.
+          schema:
+            type: string
+            format: uuid
+        - name: emission_date_from
+          in: query
+          description: Guías emitidas desde esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: emission_date_to
+          in: query
+          description: Guías emitidas hasta esta fecha (YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Las guías de remisión de la cuenta, paginadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [guia_remisions, pagination]
+                properties:
+                  guia_remisions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GuiaRemisionSummary"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createGuiaRemision
+      summary: Crear una guía de remisión
+      description: |
+        Crea una guía de remisión en borrador para trasladar lo vendido en una
+        factura autorizada. Solo la factura es obligatoria: el destinatario, los
+        productos y el documento sustento salen de ella, y lo demás, si no lo
+        envías, toma valores por defecto: la dirección del establecimiento como
+        partida, la del cliente como destino, hoy como inicio y fin del
+        transporte, motivo `venta`, y el transportista y la placa de la última
+        guía de la cuenta. Para enviarla al SRI, usa luego el endpoint de envío.
+      tags: [Guías de remisión]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuiaRemisionCreateRequest"
+      responses:
+        "201":
+          description: La guía de remisión creada en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuiaRemisionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/guia_remisions/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la guía de remisión.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getGuiaRemision
+      summary: Consultar una guía de remisión
+      description: Devuelve la guía de remisión con el traslado, el transportista y los productos.
+      tags: [Guías de remisión]
+      responses:
+        "200":
+          description: La guía de remisión.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuiaRemisionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateGuiaRemision
+      summary: Editar una guía de remisión
+      description: |
+        Edita una guía de remisión en borrador o rechazada: el punto de emisión,
+        el transportista y el traslado. La factura y los productos no cambian.
+      tags: [Guías de remisión]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuiaRemisionUpdateRequest"
+      responses:
+        "200":
+          description: La guía de remisión actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuiaRemisionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteGuiaRemision
+      summary: Eliminar una guía de remisión
+      description: Elimina una guía de remisión en borrador. Las guías ya enviadas al SRI no se pueden eliminar.
+      tags: [Guías de remisión]
+      responses:
+        "204":
+          description: La guía de remisión fue eliminada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/guia_remisions/{id}/submit:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la guía de remisión.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitGuiaRemision
+      summary: Enviar una guía de remisión al SRI
+      description: |
+        Encola una guía de remisión en borrador o rechazada para su autorización
+        en el SRI. La cuenta debe tener un certificado de firma activo. El
+        procesamiento ocurre en segundo plano: la guía pasa a `pending` y luego a
+        `authorized` o `rejected`. Consulta el estado final con `GET` de la guía.
+      tags: [Guías de remisión]
+      responses:
+        "202":
+          description: La guía de remisión fue encolada para envío (`pending`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/guia_remisions/{id}/void:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la guía de remisión.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: voidGuiaRemision
+      summary: Anular una guía de remisión
+      description: |
+        Anula una guía de remisión autorizada. Solo es posible hasta el día 7 del
+        mes siguiente a la emisión. Recuerda anular también el comprobante en el SRI.
+      tags: [Guías de remisión]
+      responses:
+        "200":
+          description: La guía de remisión anulada (`cancelled`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/transportistas:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listTransportistas
+      summary: Listar transportistas
+      description: Devuelve los transportistas de la cuenta, por razón social, con paginación.
+      tags: [Transportistas]
+      parameters:
+        - name: query
+          in: query
+          description: Buscar por razón social, nombre comercial, identificación o placa.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Número de página (25 por página).
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Los transportistas de la cuenta, paginados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transportistas, pagination]
+                properties:
+                  transportistas:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transportista"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createTransportista
+      summary: Crear un transportista
+      tags: [Transportistas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransportistaCreateRequest"
+      responses:
+        "201":
+          description: El transportista creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transportista]
+                properties:
+                  transportista:
+                    $ref: "#/components/schemas/Transportista"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{invoice_id}/collections:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: invoice_id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createInvoiceCollection
+      summary: Registrar un cobro
+      description: |
+        Registra un pago del cliente en una factura autorizada a crédito. Solo
+        se cobra la parte a crédito (lo de contado se pagó al emitir) y no
+        puede superar el saldo pendiente. Devuelve la factura actualizada.
+      tags: [Facturas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionCreateRequest"
+      responses:
+        "201":
+          description: La factura con el cobro registrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invoices/{invoice_id}/collections/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: invoice_id
+        in: path
+        required: true
+        description: Identificador de la factura.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del cobro.
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteInvoiceCollection
+      summary: Eliminar un cobro
+      description: Elimina un cobro de la factura. Devuelve la factura actualizada.
+      tags: [Facturas]
+      responses:
+        "200":
+          description: La factura sin el cobro.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/accounts/{account_id}/quotes:
     parameters:
       - name: account_id
@@ -2578,6 +3808,117 @@ paths:
           $ref: "#/components/responses/ReceivedDocumentsForbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      operationId: createReceivedDocument
+      summary: Registrar un comprobante recibido por su clave de acceso
+      description: |
+        Trae del SRI el XML autorizado de la clave de acceso y lo registra en Compras, con el proveedor, los valores y el detalle, como si llegara en el reporte del SRI.
+
+        El comprobante tiene que estar a nombre de la cuenta, ser de producción y de los últimos 30 días (el SRI no entrega los más antiguos). Si la clave ya está registrada, responde `200` con ese comprobante.
+      tags: [Comprobantes recibidos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [received_document]
+              properties:
+                received_document:
+                  type: object
+                  required: [access_key]
+                  properties:
+                    access_key:
+                      type: string
+                      pattern: "^[0-9]{49}$"
+                      description: Clave de acceso (número de autorización), 49 dígitos.
+                source:
+                  type: string
+                  enum: [barcode, photo, manual]
+                  description: De dónde salió la clave. Solo para estadísticas.
+      responses:
+        "201":
+          description: El comprobante, registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_document]
+                properties:
+                  received_document:
+                    $ref: "#/components/schemas/ReceivedDocument"
+        "200":
+          description: La clave ya estaba registrada; el comprobante existente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_document]
+                properties:
+                  received_document:
+                    $ref: "#/components/schemas/ReceivedDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/received_documents/access_key_readings:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: readReceivedDocumentAccessKey
+      summary: Leer la clave de acceso de una foto
+      description: |
+        Lee con AI la clave de acceso de la foto de un comprobante impreso (RIDE), para cuando su código de barras no se puede escanear. No guarda la foto ni registra nada: usa la clave con `POST /received_documents`.
+
+        Usa los créditos de AI de la cuenta. `valid` es `false` si no se leyeron los 49 dígitos.
+      tags: [Comprobantes recibidos]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: "Foto del comprobante (JPEG, PNG, WebP o HEIC, hasta 10 MB)."
+      responses:
+        "200":
+          description: Lo que se leyó.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_key, valid]
+                properties:
+                  access_key:
+                    type: [string, "null"]
+                    description: Los dígitos leídos, o null si no se leyó nada.
+                  valid:
+                    type: boolean
+                    description: Si se leyeron los 49 dígitos de una clave de acceso.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /api/v1/accounts/{account_id}/received_documents/{id}:
     parameters:
       - name: account_id
@@ -2614,6 +3955,349 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/received_documents/{received_document_id}/disbursements:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: received_document_id
+        in: path
+        required: true
+        description: Identificador del comprobante recibido.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createReceivedDocumentDisbursement
+      summary: Registrar un pago al proveedor
+      description: |
+        Registra un pago en una factura o nota de débito recibida. Se debe el
+        total del comprobante y el pago no puede superar el saldo pendiente.
+        Devuelve el comprobante actualizado.
+      tags: [Comprobantes recibidos]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisbursementCreateRequest"
+      responses:
+        "201":
+          description: El comprobante con el pago registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_document]
+                properties:
+                  received_document:
+                    $ref: "#/components/schemas/ReceivedDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/received_documents/{received_document_id}/disbursements/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: received_document_id
+        in: path
+        required: true
+        description: Identificador del comprobante recibido.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del pago.
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteReceivedDocumentDisbursement
+      summary: Eliminar un pago al proveedor
+      description: Elimina un pago del comprobante. Devuelve el comprobante actualizado.
+      tags: [Comprobantes recibidos]
+      responses:
+        "200":
+          description: El comprobante sin el pago.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received_document]
+                properties:
+                  received_document:
+                    $ref: "#/components/schemas/ReceivedDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReceivedDocumentsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/receivables:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getReceivables
+      summary: Consultar las cuentas por cobrar
+      description: |
+        Lo que te deben hoy: las facturas autorizadas a crédito con saldo
+        pendiente, en el ambiente de la cuenta, agrupadas por cliente. Los
+        clientes y sus facturas van del vencimiento más próximo (o más
+        vencido) al más lejano.
+      tags: [Reportes]
+      responses:
+        "200":
+          description: Las cuentas por cobrar.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [receivables]
+                properties:
+                  receivables:
+                    $ref: "#/components/schemas/Receivables"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReportsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/payables:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getPayables
+      summary: Consultar las cuentas por pagar
+      description: |
+        Lo que debes hoy: las facturas y notas de débito recibidas con saldo
+        pendiente, sin importar su antigüedad, agrupadas por proveedor. Aún no
+        se separa lo vencido: los comprobantes recibidos no guardan el plazo
+        del proveedor.
+      tags: [Reportes]
+      responses:
+        "200":
+          description: Las cuentas por pagar.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [payables]
+                properties:
+                  payables:
+                    $ref: "#/components/schemas/Payables"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/ReportsForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/members:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listMembers
+      summary: Listar usuarios
+      description: Devuelve los usuarios de la cuenta, del más antiguo al más reciente, y las invitaciones pendientes, de la más reciente a la más antigua.
+      tags: [Usuarios]
+      responses:
+        "200":
+          description: Usuarios e invitaciones pendientes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members, invitations]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Member"
+                  invitations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/UsersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/accounts/{account_id}/members/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador del usuario en la cuenta (`Member.id`).
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateMember
+      summary: Cambiar el rol de un usuario
+      description: |
+        Solo un propietario puede asignar el rol de propietario o cambiar el
+        rol de otro propietario, y el rol de desarrollador solo existe en
+        cuentas de plataforma. El último propietario de la cuenta no puede
+        cambiar de rol.
+      tags: [Usuarios]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdateRequest"
+      responses:
+        "200":
+          description: El usuario con su nuevo rol.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [member]
+                properties:
+                  member:
+                    $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/UsersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      operationId: deleteMember
+      summary: Quitar un usuario
+      description: |
+        Quita al usuario de la cuenta; deja de tener acceso. Solo un
+        propietario puede quitar a otro propietario, y no se puede quitar al
+        último. Puedes quitarte a ti mismo.
+      tags: [Usuarios]
+      responses:
+        "204":
+          description: El usuario ya no es parte de la cuenta.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/UsersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invitations:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: createInvitation
+      summary: Invitar a un usuario
+      description: |
+        Envía una invitación por correo. Si la persona ya usa Tellen, la acepta
+        con su cuenta; si no, crea una al aceptarla. Cuenta para el límite de
+        usuarios del plan cuando la acepta; si la cuenta ya llegó al límite,
+        responde `422`.
+      tags: [Usuarios]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationCreateRequest"
+      responses:
+        "201":
+          description: La invitación enviada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitation]
+                properties:
+                  invitation:
+                    $ref: "#/components/schemas/Invitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/UsersForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/accounts/{account_id}/invitations/{id}:
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        description: Identificador de la cuenta.
+        schema:
+          type: string
+          format: uuid
+      - name: id
+        in: path
+        required: true
+        description: Identificador de la invitación.
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteInvitation
+      summary: Cancelar una invitación
+      description: Cancela una invitación pendiente; el enlace del correo deja de funcionar.
+      tags: [Usuarios]
+      responses:
+        "204":
+          description: La invitación fue cancelada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/UsersForbidden"
         "404":
           $ref: "#/components/responses/NotFound"
   /api/v1/accounts/{account_id}/reports/sales_summary:
@@ -2787,7 +4471,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/Account"
         - type: object
-          required: [dir_matriz, email, phone, billing_email, regimen, obligado_contabilidad, agente_retencion, contribuyente_especial, exportador, production_mode, can_issue_documents, permissions, stores, created_at]
+          required: [dir_matriz, email, phone, billing_email, regimen, obligado_contabilidad, agente_retencion, contribuyente_especial, exportador, production_mode, can_issue_documents, permissions, user_count, user_limit, stores, created_at]
           properties:
             dir_matriz:
               type: string
@@ -2824,7 +4508,7 @@ components:
               description: |
                 Lo que puedes hacer en la cuenta, según su plan y tu rol en ella.
                 Con un token de API todo lo que el plan incluye es `true`.
-              required: [create_invoices, edit_invoices, submit_invoices, void_invoices, create_credit_notes, edit_credit_notes, submit_credit_notes, void_credit_notes, create_debit_notes, edit_debit_notes, submit_debit_notes, void_debit_notes, create_quotes, convert_quotes, convert_quotes_to_orders, send_quotes, create_orders, emit_orders, record_collections, read_received_documents, manage_contacts, manage_products, read_certificates, read_reports, manage_settings]
+              required: [create_invoices, edit_invoices, submit_invoices, void_invoices, create_credit_notes, edit_credit_notes, submit_credit_notes, void_credit_notes, create_debit_notes, edit_debit_notes, submit_debit_notes, void_debit_notes, create_purchase_liquidations, edit_purchase_liquidations, submit_purchase_liquidations, void_purchase_liquidations, create_retentions, edit_retentions, submit_retentions, void_retentions, create_guia_remisions, edit_guia_remisions, submit_guia_remisions, void_guia_remisions, manage_transportistas, create_quotes, convert_quotes, convert_quotes_to_orders, send_quotes, create_orders, emit_orders, record_collections, read_received_documents, create_received_documents, manage_contacts, manage_products, read_certificates, read_reports, manage_settings, manage_users]
               properties:
                 create_invoices:
                   type: boolean
@@ -2861,6 +4545,45 @@ components:
                 void_debit_notes:
                   type: boolean
                   description: Anular notas de débito autorizadas.
+                create_purchase_liquidations:
+                  type: boolean
+                  description: Crear liquidaciones de compra.
+                edit_purchase_liquidations:
+                  type: boolean
+                  description: Editar liquidaciones de compra en borrador o rechazadas.
+                submit_purchase_liquidations:
+                  type: boolean
+                  description: Enviar liquidaciones de compra al SRI.
+                void_purchase_liquidations:
+                  type: boolean
+                  description: Anular liquidaciones de compra autorizadas.
+                create_retentions:
+                  type: boolean
+                  description: Crear retenciones.
+                edit_retentions:
+                  type: boolean
+                  description: Editar retenciones en borrador o rechazadas.
+                submit_retentions:
+                  type: boolean
+                  description: Enviar retenciones al SRI.
+                void_retentions:
+                  type: boolean
+                  description: Anular retenciones autorizadas.
+                create_guia_remisions:
+                  type: boolean
+                  description: Crear guías de remisión.
+                edit_guia_remisions:
+                  type: boolean
+                  description: Editar guías de remisión en borrador o rechazadas.
+                submit_guia_remisions:
+                  type: boolean
+                  description: Enviar guías de remisión al SRI.
+                void_guia_remisions:
+                  type: boolean
+                  description: Anular guías de remisión autorizadas.
+                manage_transportistas:
+                  type: boolean
+                  description: Crear transportistas.
                 create_quotes:
                   type: boolean
                   description: Crear cotizaciones (proformas).
@@ -2885,6 +4608,9 @@ components:
                 read_received_documents:
                   type: boolean
                   description: Ver los comprobantes recibidos de proveedores.
+                create_received_documents:
+                  type: boolean
+                  description: Registrar comprobantes recibidos por su clave de acceso.
                 manage_contacts:
                   type: boolean
                   description: Crear, editar y eliminar clientes y proveedores.
@@ -2900,6 +4626,15 @@ components:
                 manage_settings:
                   type: boolean
                   description: Editar los datos y la configuración de la cuenta.
+                manage_users:
+                  type: boolean
+                  description: Invitar, quitar y cambiar el rol de los usuarios.
+            user_count:
+              type: integer
+              description: Usuarios de la cuenta. Las invitaciones pendientes no cuentan hasta que se aceptan.
+            user_limit:
+              type: integer
+              description: Usuarios que permite el plan.
             stores:
               type: array
               description: Establecimientos de la cuenta.
@@ -3371,7 +5106,8 @@ components:
         total_pages:
           type: integer
         total_count:
-          type: integer
+          type: [integer, "null"]
+          description: "`null` en las listas que no cuentan, como las facturas con `creditable`."
     InvoiceSummary:
       type: object
       required: [id, status, sequential, emission_date, total]
@@ -3413,7 +5149,7 @@ components:
           type: number
     DocumentDetail:
       type: object
-      required: [id, product_id, product_variant_id, code, description, quantity, unit_price, discount, subtotal, tax_rate, tax_value, ice_rate, total]
+      required: [id, product_id, product_variant_id, code, description, quantity, unit_price, discount, subtotal, tax_percentage_code, tax_rate, tax_value, ice_rate, total]
       properties:
         id:
           type: string
@@ -3437,6 +5173,9 @@ components:
           type: number
         subtotal:
           type: number
+        tax_percentage_code:
+          type: string
+          description: Código de porcentaje de IVA del SRI.
         tax_rate:
           type: number
           description: Porcentaje de IVA aplicado.
@@ -3449,7 +5188,7 @@ components:
           type: number
     Invoice:
       type: object
-      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, payments, total_without_taxes, total_discount, taxes, total_ice, total, access_key, authorization_number, error_message, creditable_amount, credit_notes, debit_notes, public_url, pdf_url, created_at, items]
+      required: [id, status, sequential, emission_date, contact, emission_point, payment_method, payments, total_without_taxes, total_discount, taxes, total_ice, total, access_key, authorization_number, error_message, creditable_amount, credit_notes, debit_notes, guia_remisions, collectible, outstanding_amount, collections, public_url, pdf_url, created_at, items]
       properties:
         id:
           type: string
@@ -3515,6 +5254,22 @@ components:
           description: Las notas de débito que cargan a la factura.
           items:
             $ref: "#/components/schemas/DebitNoteSummary"
+        guia_remisions:
+          type: array
+          description: Las guías de remisión que trasladan lo vendido en la factura.
+          items:
+            $ref: "#/components/schemas/GuiaRemisionSummary"
+        collectible:
+          type: boolean
+          description: Autorizada, a crédito y con saldo pendiente; admite registrar cobros.
+        outstanding_amount:
+          type: number
+          description: Lo que queda por cobrar de la parte a crédito. 0 en facturas de contado.
+        collections:
+          type: array
+          description: Cobros registrados contra la parte a crédito, del más reciente al más antiguo.
+          items:
+            $ref: "#/components/schemas/Collection"
         public_url:
           type: [string, "null"]
           format: uri
@@ -3980,6 +5735,445 @@ components:
               description: Si se envía, reemplaza todos los motivos actuales.
               items:
                 $ref: "#/components/schemas/DebitNoteMotiveRequest"
+    PurchaseLiquidationSummary:
+      type: object
+      required: [id, status, sequential, emission_date, contact_name, total]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Número completo, p. ej. `001-001-000000021`.
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+          description: Razón social del proveedor.
+        total:
+          type: number
+    PurchaseLiquidation:
+      allOf:
+        - $ref: "#/components/schemas/PurchaseLiquidationSummary"
+        - type: object
+          required: [contact, emission_point, payment_method, total_without_taxes, total_discount, taxes, total_ice, access_key, authorization_number, error_message, public_url, pdf_url, created_at, items]
+          properties:
+            contact:
+              type: object
+              description: El proveedor.
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: [string, "null"]
+                identificacion:
+                  type: [string, "null"]
+            emission_point:
+              $ref: "#/components/schemas/EmissionPointReference"
+            payment_method:
+              type: string
+              description: Código SRI de la forma de pago.
+            total_without_taxes:
+              type: number
+            total_discount:
+              type: number
+            taxes:
+              type: array
+              description: Base e IVA por tipo de IVA, como los totaliza el RIDE.
+              items:
+                $ref: "#/components/schemas/TaxTotal"
+            total_ice:
+              type: number
+            access_key:
+              type: [string, "null"]
+            authorization_number:
+              type: [string, "null"]
+            error_message:
+              type: [string, "null"]
+              description: Motivo del rechazo, cuando el estado es `rejected`.
+            public_url:
+              type: [string, "null"]
+              format: uri
+              description: Página pública para compartir con el proveedor. Solo cuando está autorizada.
+            pdf_url:
+              type: [string, "null"]
+              format: uri
+              description: El RIDE en PDF. Solo cuando está autorizada.
+            created_at:
+              type: string
+              format: date-time
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/DocumentDetail"
+    PurchaseLiquidationEnvelope:
+      type: object
+      required: [purchase_liquidation]
+      properties:
+        purchase_liquidation:
+          $ref: "#/components/schemas/PurchaseLiquidation"
+    PurchaseLiquidationCreateRequest:
+      type: object
+      required: [purchase_liquidation]
+      properties:
+        purchase_liquidation:
+          type: object
+          required: [contact_id, emission_point_id, items]
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+              description: Proveedor de la liquidación.
+            emission_point_id:
+              type: string
+              format: uuid
+            items:
+              type: array
+              minItems: 1
+              description: Lo comprado; `unit_price` es el precio pagado al proveedor.
+              items:
+                $ref: "#/components/schemas/PurchaseLiquidationItemRequest"
+    PurchaseLiquidationUpdateRequest:
+      type: object
+      required: [purchase_liquidation]
+      properties:
+        purchase_liquidation:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            contact_id:
+              type: string
+              format: uuid
+            emission_point_id:
+              type: string
+              format: uuid
+            items:
+              type: array
+              description: Si se envía, reemplaza todos los ítems actuales.
+              items:
+                $ref: "#/components/schemas/PurchaseLiquidationItemRequest"
+    PurchaseLiquidationItemRequest:
+      description: |
+        Un producto del catálogo, referenciado como en `DocumentDetailRequest`
+        (entra al stock al autorizarse), o una línea escrita a mano: sin producto,
+        con `code`, `description` y `tax_percentage_code`. Las líneas a mano no
+        mueven stock.
+      allOf:
+        - $ref: "#/components/schemas/DocumentDetailRequest"
+        - type: object
+          properties:
+            code:
+              type: string
+              maxLength: 25
+              description: Código de la línea a mano (código principal del SRI).
+            description:
+              type: string
+              maxLength: 300
+              description: Descripción de la línea a mano.
+            tax_percentage_code:
+              type: string
+              enum: ["0", "2", "3", "4", "5", "6", "7", "8"]
+              description: Código de porcentaje de IVA del SRI de la línea a mano; la tarifa se deriva de él. En un producto se ignora y se usa el IVA del producto.
+    GuiaRemisionSummary:
+      type: object
+      required: [id, status, sequential, emission_date, contact_name, invoice_id, invoice_sequential, transportista_name, placa, fecha_ini_transporte]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Número completo, p. ej. `001-001-000000021`.
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+          description: El destinatario, que es el cliente de la factura.
+        invoice_id:
+          type: string
+          format: uuid
+          description: La factura que sustenta el traslado.
+        invoice_sequential:
+          type: string
+          description: Número del documento sustento.
+        transportista_name:
+          type: [string, "null"]
+        placa:
+          type: string
+        fecha_ini_transporte:
+          type: string
+          format: date
+    GuiaRemisionItem:
+      type: object
+      required: [id, product_id, product_variant_id, code, description, quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_id:
+          type: [string, "null"]
+          format: uuid
+        product_variant_id:
+          type: [string, "null"]
+          format: uuid
+        code:
+          type: [string, "null"]
+        description:
+          type: string
+        quantity:
+          type: number
+    GuiaRemision:
+      allOf:
+        - $ref: "#/components/schemas/GuiaRemisionSummary"
+        - type: object
+          required: [contact, emission_point, transportista, invoice_emission_date, motivo_traslado, fecha_fin_transporte, dir_partida, dir_destinatario, access_key, authorization_number, error_message, created_at, items]
+          properties:
+            contact:
+              type: object
+              required: [id, razon_social, identificacion]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                razon_social:
+                  type: [string, "null"]
+                identificacion:
+                  type: [string, "null"]
+            emission_point:
+              $ref: "#/components/schemas/EmissionPointReference"
+            transportista:
+              $ref: "#/components/schemas/Transportista"
+            invoice_emission_date:
+              type: string
+              format: date
+            motivo_traslado:
+              type: string
+              enum: [venta, compra, transformacion, consignacion, almacenamiento, exportacion, importacion, traslado_propio]
+            fecha_fin_transporte:
+              type: string
+              format: date
+            dir_partida:
+              type: string
+            dir_destinatario:
+              type: string
+            access_key:
+              type: [string, "null"]
+            authorization_number:
+              type: [string, "null"]
+            error_message:
+              type: [string, "null"]
+              description: Motivo del rechazo, cuando el estado es `rejected`.
+            created_at:
+              type: string
+              format: date-time
+            items:
+              type: array
+              description: Los productos de la factura que se trasladan.
+              items:
+                $ref: "#/components/schemas/GuiaRemisionItem"
+    GuiaRemisionEnvelope:
+      type: object
+      required: [guia_remision]
+      properties:
+        guia_remision:
+          $ref: "#/components/schemas/GuiaRemision"
+    GuiaRemisionCreateRequest:
+      type: object
+      required: [guia_remision]
+      properties:
+        guia_remision:
+          type: object
+          required: [invoice_id]
+          properties:
+            invoice_id:
+              type: string
+              format: uuid
+              description: La factura autorizada cuyo traslado ampara.
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Por defecto, el punto de emisión de la factura.
+            transportista_id:
+              type: string
+              format: uuid
+              description: Por defecto, el de la última guía de la cuenta.
+            placa:
+              type: string
+              description: Por defecto, la de la última guía si es el mismo transportista; si no, la del transportista.
+            motivo_traslado:
+              type: string
+              enum: [venta, compra, transformacion, consignacion, almacenamiento, exportacion, importacion, traslado_propio]
+              description: Por defecto, `venta`.
+            fecha_ini_transporte:
+              type: string
+              format: date
+              description: Por defecto, hoy.
+            fecha_fin_transporte:
+              type: string
+              format: date
+              description: Por defecto, la fecha de inicio.
+            dir_partida:
+              type: string
+              description: Por defecto, la dirección del establecimiento del punto de emisión.
+            dir_destinatario:
+              type: string
+              description: Por defecto, la dirección del cliente de la factura.
+    GuiaRemisionUpdateRequest:
+      type: object
+      required: [guia_remision]
+      properties:
+        guia_remision:
+          type: object
+          description: Envía solo los campos que quieras cambiar.
+          properties:
+            emission_point_id:
+              type: string
+              format: uuid
+            transportista_id:
+              type: string
+              format: uuid
+            placa:
+              type: string
+            motivo_traslado:
+              type: string
+              enum: [venta, compra, transformacion, consignacion, almacenamiento, exportacion, importacion, traslado_propio]
+            fecha_ini_transporte:
+              type: string
+              format: date
+            fecha_fin_transporte:
+              type: string
+              format: date
+            dir_partida:
+              type: string
+            dir_destinatario:
+              type: string
+    Transportista:
+      type: object
+      required: [id, razon_social, nombre_comercial, tipo_identificacion, identificacion, placa]
+      properties:
+        id:
+          type: string
+          format: uuid
+        razon_social:
+          type: string
+        nombre_comercial:
+          type: [string, "null"]
+        tipo_identificacion:
+          type: string
+          enum: [cedula, ruc, pasaporte, identificacion_del_exterior]
+        identificacion:
+          type: string
+        placa:
+          type: [string, "null"]
+          description: Placa por defecto del vehículo.
+    TransportistaCreateRequest:
+      type: object
+      required: [transportista]
+      properties:
+        transportista:
+          type: object
+          required: [razon_social, tipo_identificacion, identificacion]
+          properties:
+            razon_social:
+              type: string
+            nombre_comercial:
+              type: string
+            tipo_identificacion:
+              type: string
+              enum: [cedula, ruc, pasaporte, identificacion_del_exterior]
+            identificacion:
+              type: string
+              description: 10 dígitos para cédula, 13 para RUC.
+            placa:
+              type: string
+    Member:
+      type: object
+      required: [id, name, email, role, joined_at, current_user]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Nombre completo, o el correo si no lo tiene.
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [owner, admin, vendedor, contador, developer]
+          description: "Rol en la cuenta: `owner` propietario, `admin` administrador, `vendedor`, `contador`, `developer` desarrollador (solo cuentas de plataforma)."
+        joined_at:
+          type: string
+          format: date-time
+          description: Desde cuándo es parte de la cuenta.
+        current_user:
+          type: boolean
+          description: "`true` si eres tú."
+    MemberUpdateRequest:
+      type: object
+      required: [member]
+      properties:
+        member:
+          type: object
+          required: [role]
+          properties:
+            role:
+              type: string
+              enum: [owner, admin, vendedor, contador, developer]
+              description: "Rol en la cuenta: `owner` propietario, `admin` administrador, `vendedor`, `contador`, `developer` desarrollador (solo cuentas de plataforma)."
+    Invitation:
+      type: object
+      required: [id, email, role, invited_at, expires_at, expired]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [owner, admin, vendedor, contador, developer]
+          description: "Rol en la cuenta: `owner` propietario, `admin` administrador, `vendedor`, `contador`, `developer` desarrollador (solo cuentas de plataforma)."
+        invited_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        expired:
+          type: boolean
+          description: El enlace caducó; vuelve a invitar al mismo correo para enviar uno nuevo.
+    InvitationCreateRequest:
+      type: object
+      required: [invitation]
+      properties:
+        invitation:
+          type: object
+          required: [email]
+          properties:
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+              enum: [owner, admin, vendedor, contador, developer]
+              description: "Rol en la cuenta: `owner` propietario, `admin` administrador, `vendedor`, `contador`, `developer` desarrollador (solo cuentas de plataforma). Por defecto `vendedor`; si no puedes asignar el rol pedido, se invita como `vendedor`."
+            first_name:
+              type: string
+            last_name:
+              type: string
     EmissionPointReference:
       type: object
       description: El punto de emisión de un documento, con los códigos del SRI y los nombres para mostrar.
@@ -4708,6 +6902,227 @@ components:
         outstanding_amount:
           type: [number, "null"]
           description: Lo que aún se le debe al proveedor. `null` en lo que no se paga (notas de crédito, liquidaciones, retenciones).
+    RetentionSummary:
+      type: object
+      required: [id, status, sequential, emission_date, contact_name, total_withheld]
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, pending, authorized, rejected, cancelled]
+        sequential:
+          type: string
+          description: Número completo, p. ej. `001-001-000000021`.
+        emission_date:
+          type: string
+          format: date
+        contact_name:
+          type: [string, "null"]
+          description: El proveedor (sujeto retenido).
+        total_withheld:
+          type: number
+          description: Total retenido.
+    RetentionContact:
+      type: object
+      required: [id, razon_social, identificacion]
+      properties:
+        id:
+          type: string
+          format: uuid
+        razon_social:
+          type: [string, "null"]
+        identificacion:
+          type: [string, "null"]
+    RetentionItem:
+      description: Una línea de retención, igual en las retenciones que emites y en las que recibes.
+      type: object
+      required: [id, retention_code_id, name, tax_code, tax_label, percentage_code, percentage, base, withheld_value, document_number]
+      properties:
+        id:
+          type: string
+          format: uuid
+        retention_code_id:
+          type: [string, "null"]
+          format: uuid
+          description: El código de retención del catálogo (`GET retention_codes`). `null` en las retenciones recibidas.
+        name:
+          type: [string, "null"]
+          description: Nombre del código, p. ej. "Retención IVA 30%".
+        tax_code:
+          type: string
+          description: Impuesto que se retiene. `1` renta, `2` IVA, `6` ISD.
+        tax_label:
+          type: string
+          description: El impuesto como lo imprime el RIDE, p. ej. `RENTA`.
+        percentage_code:
+          type: string
+          description: Código de retención del SRI, p. ej. `303`.
+        percentage:
+          type: number
+        base:
+          type: number
+          description: Base imponible de la retención.
+        withheld_value:
+          type: number
+          description: Valor retenido.
+        document_number:
+          type: [string, "null"]
+          description: En una retención recibida, el comprobante sobre el que se retuvo, si lo indica.
+    RetentionDocument:
+      type: object
+      required: [id, cod_doc_sustento, document_type, number, authorization_number, emission_date, cod_sustento, source_type, source_id, total_without_taxes, total, withholdings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        cod_doc_sustento:
+          type: string
+          description: Tipo de documento de sustento del SRI. `01` factura, `03` liquidación de compra, `05` nota de débito.
+        document_type:
+          type: [string, "null"]
+          description: El tipo de documento, p. ej. "Factura".
+        number:
+          type: string
+          description: Número del documento de sustento, p. ej. `001-001-000000123`.
+        authorization_number:
+          type: [string, "null"]
+        emission_date:
+          type: [string, "null"]
+          format: date
+        cod_sustento:
+          type: string
+          description: Código de sustento tributario del SRI (tabla 5), p. ej. `01` crédito tributario de IVA.
+        source_type:
+          description: De dónde sale. `null` si no lo encontramos.
+          oneOf:
+            - $ref: "#/components/schemas/RetentionSourceType"
+            - type: "null"
+        source_id:
+          type: [string, "null"]
+          format: uuid
+          description: El comprobante recibido o la liquidación de compra de la que sale.
+        total_without_taxes:
+          type: number
+        total:
+          type: number
+          description: Importe total del documento de sustento.
+        withholdings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionItem"
+    Retention:
+      allOf:
+        - $ref: "#/components/schemas/RetentionSummary"
+        - type: object
+          required: [contact, emission_point, period_fiscal, access_key, authorization_number, error_message, public_url, pdf_url, created_at, documents]
+          properties:
+            contact:
+              $ref: "#/components/schemas/RetentionContact"
+            emission_point:
+              $ref: "#/components/schemas/EmissionPointReference"
+            period_fiscal:
+              type: string
+              description: Período fiscal, `MM/AAAA`.
+            access_key:
+              type: [string, "null"]
+            authorization_number:
+              type: [string, "null"]
+            error_message:
+              type: [string, "null"]
+              description: Motivo del rechazo, cuando el estado es `rejected`.
+            public_url:
+              type: [string, "null"]
+              format: uri
+              description: Página pública para compartir con el proveedor. Solo cuando está autorizada.
+            pdf_url:
+              type: [string, "null"]
+              format: uri
+              description: El RIDE en PDF. Solo cuando está autorizada.
+            created_at:
+              type: string
+              format: date-time
+            documents:
+              type: array
+              description: Los documentos de sustento, cada uno con lo que retiene.
+              items:
+                $ref: "#/components/schemas/RetentionDocument"
+    RetentionEnvelope:
+      type: object
+      required: [retention]
+      properties:
+        retention:
+          $ref: "#/components/schemas/Retention"
+    RetentionWriteRequest:
+      type: object
+      required: [retention]
+      properties:
+        retention:
+          type: object
+          properties:
+            emission_point_id:
+              type: string
+              format: uuid
+              description: Obligatorio al crear.
+            period_fiscal:
+              type: string
+              description: Período fiscal, `MM/AAAA`. Por defecto, el mes de emisión.
+            documents:
+              type: array
+              description: Los documentos de sustento, todos del mismo proveedor. Obligatorio al crear; al editar, reemplaza los actuales.
+              items:
+                type: object
+                required: [source_type, source_id, items]
+                properties:
+                  source_type:
+                    $ref: "#/components/schemas/RetentionSourceType"
+                  source_id:
+                    type: string
+                    format: uuid
+                    description: El comprobante recibido (con su XML) o la liquidación de compra autorizada.
+                  cod_sustento:
+                    type: string
+                    description: Código de sustento tributario del SRI (tabla 5) válido para el tipo de documento. Por defecto `01`.
+                  items:
+                    type: array
+                    minItems: 1
+                    description: Un código de retención no se puede repetir en el mismo documento.
+                    items:
+                      type: object
+                      required: [retention_code_id]
+                      properties:
+                        retention_code_id:
+                          type: string
+                          format: uuid
+                        tax_base:
+                          type: number
+                          exclusiveMinimum: 0
+                          description: Base de la retención. Por defecto, el IVA del documento para un código de IVA, y su subtotal para renta o ISD.
+    RetentionSourceType:
+      type: string
+      enum: [received_document, purchase_liquidation]
+      description: |
+        De dónde sale un documento de sustento: `received_document`, una factura
+        o nota de débito recibida; `purchase_liquidation`, una liquidación de
+        compra autorizada de la cuenta.
+    RetentionCode:
+      type: object
+      required: [id, name, tax_code, percentage_code, percentage]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tax_code:
+          type: string
+          description: Impuesto que retiene. `1` renta, `2` IVA, `6` ISD.
+        percentage_code:
+          type: string
+          description: Código de retención del SRI, p. ej. `303`.
+        percentage:
+          type: number
     ReceivedDocument:
       description: El comprobante según su tipo. Todos comparten los datos del sobre (`ReceivedDocumentEnvelope`).
       oneOf:
@@ -4726,7 +7141,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/ReceivedDocumentSummary"
         - type: object
-          required: [access_key, authorization_number, authorization_date, contact_id, modified_document_number, xml_pending, disbursements]
+          required: [access_key, authorization_number, authorization_date, contact_id, modified_document_number, xml_pending, suggested_paid_on, retainable, retentions, disbursements]
           properties:
             access_key:
               type: string
@@ -4745,6 +7160,18 @@ components:
             xml_pending:
               type: boolean
               description: Aún no llega el XML autorizado; hasta entonces no hay detalle ni impuestos.
+            suggested_paid_on:
+              type: [string, "null"]
+              format: date
+              description: Fecha sugerida para un pago nuevo (la de autorización, si no es futura). `null` en lo que no se paga.
+            retainable:
+              type: boolean
+              description: Se puede retener sobre él (`source_type` `received_document` al crear una retención), es decir, una factura o nota de débito con su XML.
+            retentions:
+              type: array
+              description: Las retenciones que emitiste sobre este comprobante, en el ambiente activo.
+              items:
+                $ref: "#/components/schemas/RetentionSummary"
             disbursements:
               type: array
               description: Pagos hechos al proveedor, del más reciente al más antiguo.
@@ -4810,27 +7237,7 @@ components:
               type: array
               description: Cada impuesto retenido.
               items:
-                type: object
-                required: [tax_code, tax_label, percentage_code, percentage, base, withheld_value, document_number]
-                properties:
-                  tax_code:
-                    type: string
-                    description: Código de impuesto del SRI (1 renta, 2 IVA, 6 ISD).
-                  tax_label:
-                    type: string
-                    description: p. ej. "RENTA" o "IVA".
-                  percentage_code:
-                    type: string
-                    description: Código de retención del SRI, p. ej. `303`.
-                  percentage:
-                    type: number
-                  base:
-                    type: number
-                  withheld_value:
-                    type: number
-                  document_number:
-                    type: [string, "null"]
-                    description: El comprobante sobre el que se retuvo, si lo indica.
+                $ref: "#/components/schemas/RetentionItem"
             documents:
               type: array
               description: Los comprobantes sobre los que se retuvo.
@@ -4906,16 +7313,126 @@ components:
           properties:
             amount:
               type: number
-              description: Monto del abono; no puede superar el saldo pendiente.
+              description: Monto; no puede superar el saldo pendiente.
             forma_pago:
               type: string
               description: "Código SRI de forma de pago: `01` sin sistema financiero (efectivo), `19` tarjeta de crédito, `20` otros con sistema financiero (p. ej. transferencia)"
             collected_on:
               type: string
               format: date
-              description: Fecha del abono (por defecto hoy; no puede ser futura).
+              description: Fecha del pago (por defecto hoy; no puede ser futura).
             notes:
               type: string
+    DisbursementCreateRequest:
+      type: object
+      required: [disbursement]
+      properties:
+        disbursement:
+          type: object
+          required: [amount, forma_pago]
+          properties:
+            amount:
+              type: number
+              description: Monto del pago; no puede superar el saldo pendiente.
+            forma_pago:
+              type: string
+              description: "Código SRI de forma de pago: `01` sin sistema financiero (efectivo), `19` tarjeta de crédito, `20` otros con sistema financiero (p. ej. transferencia)"
+            paid_on:
+              type: string
+              format: date
+              description: Fecha del pago (por defecto `suggested_paid_on` del comprobante; no puede ser futura).
+            notes:
+              type: string
+    Receivables:
+      type: object
+      required: [total, current, overdue, count, contacts]
+      properties:
+        total:
+          type: number
+          description: Saldo pendiente de todas las facturas.
+        current:
+          type: number
+          description: Por vencer.
+        overdue:
+          type: number
+          description: Vencido.
+        count:
+          type: integer
+          description: Facturas con saldo.
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReceivablesContact"
+    ReceivablesContact:
+      type: object
+      required: [contact_id, name, total, overdue, invoices]
+      properties:
+        contact_id:
+          type: string
+          format: uuid
+        name:
+          type: [string, "null"]
+          description: Razón social del cliente.
+        total:
+          type: number
+        overdue:
+          type: number
+        invoices:
+          type: array
+          items:
+            type: object
+            required: [id, sequential, emission_date, due_date, days_overdue, outstanding_amount]
+            properties:
+              id:
+                type: string
+                format: uuid
+              sequential:
+                type: string
+              emission_date:
+                type: string
+                format: date
+              due_date:
+                type: [string, "null"]
+                format: date
+              days_overdue:
+                type: integer
+                description: Días desde el vencimiento; 0 si aún no vence.
+              outstanding_amount:
+                type: number
+    Payables:
+      type: object
+      required: [total, count, contacts]
+      properties:
+        total:
+          type: number
+          description: Saldo pendiente de todos los comprobantes.
+        count:
+          type: integer
+          description: Comprobantes con saldo.
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayablesContact"
+    PayablesContact:
+      type: object
+      required: [contact_id, name, ruc, total, documents]
+      properties:
+        contact_id:
+          type: [string, "null"]
+          format: uuid
+          description: El proveedor como contacto, si ya existe.
+        name:
+          type: string
+          description: Razón social del proveedor.
+        ruc:
+          type: string
+        total:
+          type: number
+        documents:
+          type: array
+          description: Del más reciente al más antiguo.
+          items:
+            $ref: "#/components/schemas/ReceivedDocumentSummary"
   responses:
     Unauthorized:
       description: Falta el token, o es inválido o está inactivo. Verifica el encabezado `Authorization`.
@@ -4943,6 +7460,12 @@ components:
             $ref: "#/components/schemas/Error"
     OrdersForbidden:
       description: Tu plan no incluye órdenes (disponibles desde Profesional), o tu rol no permite esta acción.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    UsersForbidden:
+      description: Tu rol no permite administrar usuarios.
       content:
         application/json:
           schema:
