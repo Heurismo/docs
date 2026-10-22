@@ -27,7 +27,7 @@ Tellen responde con `429 Too Many Requests` y la solicitud no se procesa. La res
 
 ## Paginación
 
-Los listados (`GET` de facturas, notas de crédito, notas de débito, cotizaciones, órdenes, comprobantes recibidos, contactos, productos, establecimientos y puntos de emisión) devuelven **25 registros por página**. El tamaño de página es fijo.
+Los listados (`GET` de facturas, notas de crédito, notas de débito, liquidaciones de compra, retenciones, guías de remisión, contactos, transportistas, productos, establecimientos y puntos de emisión) devuelven **25 registros por página**. El tamaño de página es fijo.
 
 Pide otra página con el parámetro `page`:
 
@@ -54,3 +54,7 @@ Sigue pidiendo páginas mientras `page` sea menor que `total_pages`.
 ## Certificados de firma
 
 El archivo `.p12` que subes con [Subir un certificado de firma](/api-reference/certificados/subir-un-certificado-de-firma) puede pesar como máximo **5 MB**.
+
+## Fotos de productos
+
+Cada foto que subes con [Subir una foto](/api-reference/productos/subir-una-foto) debe ser JPEG, PNG o WebP y pesar como máximo **3 MB**.
